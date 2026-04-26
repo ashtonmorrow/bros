@@ -1700,9 +1700,12 @@
     // continuously visible while it spins out.
     const isDying = game.mode === 'dying' && game.dyingKind === 'final';
     if (!isDying && p.invuln > 0 && Math.floor(p.invuln * 12) % 2 === 0) return;
-    // Pick the sprite set matching the current power state. small / big are
-    // baked at different scales (1.7x vs 2.2x) and on different canvas sizes.
-    const set = Sprites.cats[selectedCat][p.power];
+    // Pick the sprite set via POWER[*].sizeKey so the 'shooter' power state
+    // (which has no dedicated sprite set) shares the 'big' sprites — same
+    // dimensions, same look, plus the magic-fish HUD pip telling the
+    // player they can shoot.
+    const dims = POWER[p.power];
+    const set = Sprites.cats[selectedCat][dims.sizeKey];
     let sprite;
     if (isDying)                  sprite = set.hurt;
     else if (p.state === 'jump')  sprite = set.jump;
@@ -1711,7 +1714,7 @@
     else                          sprite = set.idle;
     // Centre the sprite horizontally on the hitbox; align the bottom of the
     // sprite (where the cat's paws are) with the bottom of the hitbox.
-    const dims = POWER[p.power];
+    // (`dims` was resolved up above when we chose the sprite set.)
     const offX = (dims.spriteW - p.w) / 2;
     const offY = dims.spriteH - p.h;
     // Subtle vertical bob during run — sells "actually running" without a
@@ -1932,10 +1935,12 @@
     ctx.fillText('PAUSED', VIEW_W / 2, 68);
 
     // Active cat preview (uses current power state so big/shooter shows up
-    // proudly rather than reverting to the small idle).
+    // proudly rather than reverting to the small idle). Resolve via
+    // POWER[*].sizeKey so 'shooter' falls back to the 'big' sprite set
+    // — there is no dedicated 'shooter' bake.
     if (game.player) {
-      const sizeKey = game.player.power || 'small';
-      const set = Sprites.cats[selectedCat] && Sprites.cats[selectedCat][sizeKey];
+      const dims = POWER[game.player.power] || POWER.small;
+      const set = Sprites.cats[selectedCat] && Sprites.cats[selectedCat][dims.sizeKey];
       if (set && set.idle) {
         const sprite = set.idle;
         ctx.drawImage(sprite, VIEW_W / 2 - sprite.width / 2, 100);
