@@ -108,6 +108,7 @@
     items: [],
     powerUps: [],           // cans / fish that have popped out of boxes
     projectiles: [],        // fishbones currently in flight
+    particles: [],          // cosmetic puffs / sparkles
     flash: 0,               // brief screen flash on stomp (cosmetic)
     deathTimer: 0,
   };
@@ -161,6 +162,7 @@
       powerXfade: 0,           // brief visual pulse during grow / shrink
       shootCooldown: 0,        // seconds until next fishbone is allowed
       prevShoot: false,        // edge-detect the shoot key
+      lastStepAt: 0,           // animTimer of last step-puff spawn
     };
   }
 
@@ -225,6 +227,7 @@
     game.items = [];
     game.powerUps = [];
     game.projectiles = [];
+    game.particles = [];
     game.totalCollectibles = 0;
     game.goal = null;
 
@@ -550,7 +553,61 @@
     p.animTimer += dt;
     p.animFrame = p.state === 'run' ? Math.floor(p.animTimer * 8) % 2 : 0;
 
+    // Step puffs — spawn a small dust cloud at the feet on each footfall
+    // while running on the ground. The visual sells "actually running"
+    // without a side-view sprite cycle.
+    if (p.state === 'run' && p.onGround) {
+      if (p.animTimer - p.lastStepAt > 0.16) {
+        spawnStepPuff(p);
+        p.lastStepAt = p.animTimer;
+      }
+    }
+
     if (p.invuln > 0) p.invuln = Math.max(0, p.invuln - dt);
+  }
+
+  // ------ particles (cosmetic) ---------------------------------------------
+  function spawnStepPuff(p) {
+    const dirX = p.facing === 'right' ? -1 : 1;   // drift opposite of run
+    game.particles.push({
+      kind: 'puff',
+      x: p.x + p.w / 2,
+      y: p.y + p.h - 2,
+      vx: dirX * 0.35,
+      vy: -0.25,
+      age: 0,
+      life: 0.32,
+      alive: true,
+    });
+  }
+
+  function updateParticles(dt) {
+    for (const par of game.particles) {
+      if (!par.alive) continue;
+      par.age += dt;
+      if (par.age >= par.life) { par.alive = false; continue; }
+      par.x += par.vx;
+      par.y += par.vy;
+      par.vx *= 0.93;
+      par.vy += 0.04;
+    }
+    if (game.particles.length > 32) {
+      game.particles = game.particles.filter(p => p.alive);
+    }
+  }
+
+  function drawParticles() {
+    const camX = Math.floor(game.cameraX);
+    for (const par of game.particles) {
+      if (!par.alive) continue;
+      const t = par.age / par.life;
+      const alpha = (1 - t) * 0.55;
+      const radius = 2.5 + t * 3;
+      ctx.fillStyle = `rgba(220, 200, 170, ${alpha.toFixed(3)})`;
+      ctx.beginPath();
+      ctx.arc(par.x - camX, par.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   // ------ enemies ------------------------------------------------------------
@@ -914,6 +971,7 @@
       updateProjectiles(dt);
       updateCollisions(dt);
       updateItems(dt);
+      updateParticles(dt);
       updateCamera();
       checkGoal();
     }
@@ -922,24 +980,40 @@
   // ------ rendering ----------------------------------------------------------
 
   function drawSky() {
+    // Pounce's sky is a cozy autumn sunset — deep dusk-purple at the top,
+    // sliding through sunset orange to a peach horizon. Sets the "the cat
+    // is heading home for a nap" mood that the cozy-bed goal pays off.
     const grad = ctx.createLinearGradient(0, 0, 0, VIEW_H);
-    grad.addColorStop(0, '#74c0fc');
-    grad.addColorStop(0.55, '#a4d6f5');
-    grad.addColorStop(1, '#dff2fb');
+    grad.addColorStop(0,    '#3d2b5e');   // dusk indigo
+    grad.addColorStop(0.45, '#c66e4a');   // sunset orange
+    grad.addColorStop(0.78, '#f29b67');   // golden hour
+    grad.addColorStop(1,    '#ffd9a8');   // peach horizon
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+    // A faint round sun low on the horizon adds a focal point; doesn't move
+    // with the camera (parallax = 0) so it stays put as the cat runs.
+    ctx.fillStyle = 'rgba(255, 220, 160, 0.55)';
+    ctx.beginPath();
+    ctx.arc(640, 360, 70, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255, 240, 200, 0.8)';
+    ctx.beginPath();
+    ctx.arc(640, 360, 48, 0, Math.PI * 2);
+    ctx.fill();
   }
 
-  // Two parallax layers: clouds (slow), then hills (faster).
+  // Two parallax layers: clouds (slow), then hills (faster). Cloud y values
+  // bias toward the upper-third so they don't overlap the sun on the horizon.
   const CLOUDS = [
-    { x: 80,   y: 50  },
-    { x: 380,  y: 80  },
-    { x: 700,  y: 40  },
-    { x: 1050, y: 90  },
-    { x: 1380, y: 60  },
-    { x: 1720, y: 100 },
-    { x: 2050, y: 55  },
-    { x: 2400, y: 90  },
+    { x: 80,   y: 30  },
+    { x: 380,  y: 60  },
+    { x: 700,  y: 22  },
+    { x: 1050, y: 72  },
+    { x: 1380, y: 40  },
+    { x: 1720, y: 80  },
+    { x: 2050, y: 35  },
+    { x: 2400, y: 70  },
   ];
 
   function drawClouds() {
@@ -955,22 +1029,32 @@
   }
 
   function drawHills() {
+    // Two layers, both silhouettes against the sunset gradient. The far
+    // layer is a dusky purple so it reads as distant; the near layer is a
+    // warmer evening teal-green.
     const offset = -game.cameraX * 0.5;
-    ctx.fillStyle = '#7eaa54';
+    ctx.fillStyle = '#5e3f6b';     // far hills — dusky purple silhouette
+    for (let i = -1; i < 6; i++) {
+      const baseX = i * 720 + (-game.cameraX * 0.35);
+      ctx.beginPath();
+      ctx.arc(baseX + 360, 470, 300, Math.PI, 0);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#5a705a';     // mid hills — evening teal-green
     for (let i = -1; i < 8; i++) {
       const baseX = i * 600 + offset;
       ctx.beginPath();
-      ctx.arc(baseX + 200, 400, 180, Math.PI, 0);
+      ctx.arc(baseX + 200, 410, 180, Math.PI, 0);
       ctx.fill();
       ctx.beginPath();
-      ctx.arc(baseX + 450, 420, 230, Math.PI, 0);
+      ctx.arc(baseX + 450, 430, 230, Math.PI, 0);
       ctx.fill();
     }
-    ctx.fillStyle = '#5a8b3e';
+    ctx.fillStyle = '#3f5440';     // close foreground hills — darker
     for (let i = -1; i < 6; i++) {
       const baseX = i * 720 + (-game.cameraX * 0.7);
       ctx.beginPath();
-      ctx.arc(baseX + 360, 460, 280, Math.PI, 0);
+      ctx.arc(baseX + 360, 470, 280, Math.PI, 0);
       ctx.fill();
     }
   }
@@ -1077,8 +1161,14 @@
     const dims = POWER[p.power];
     const offX = (dims.spriteW - p.w) / 2;
     const offY = dims.spriteH - p.h;
+    // Subtle vertical bob during run — sells "actually running" without a
+    // side-view sprite cycle. Two-pixel amplitude, frequency synced to the
+    // run animation so the body lifts on each step.
+    const bobY = (p.state === 'run' && p.onGround)
+      ? Math.round(Math.abs(Math.sin(p.animTimer * 16)) * -2)
+      : 0;
     const sx = Math.floor(p.x - game.cameraX - offX);
-    const sy = Math.floor(p.y - offY);
+    const sy = Math.floor(p.y - offY + bobY);
     // Pulse scale briefly when transitioning between sizes.
     if (p.powerXfade > 0) {
       ctx.save();
@@ -1344,6 +1434,7 @@
     drawPowerUps();
     drawProjectiles();
     drawEnemies();
+    drawParticles();
     drawPlayer();
     drawFlash();
     drawHUD();

@@ -8,18 +8,21 @@
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
 
 :root {
-  --bg-1:    #050910;
-  --bg-2:    #0b1320;
-  --bg-3:    #1a2838;
-  --panel:   #111a27;
-  --panel-2: #0a111c;
-  --bezel:   #1d2a3c;
+  /* Page chrome: deep nighttime backdrop so the sunset palette inside the
+     canvas glows by contrast. Accent stays warm gold (matches the cat-food
+     can + magic-fish highlights inside the game). */
+  --bg-1:    #0a0712;
+  --bg-2:    #181028;
+  --bg-3:    #2a1f44;
+  --panel:   #1a1227;
+  --panel-2: #0d0a18;
+  --bezel:   #3a2a55;
   --ink:     #f0e9e0;
   --ink-dim: #b0a89c;
-  --ink-soft:#7aa7c7;
-  --accent:  #ffd166;
-  --accent-2:#84e36b;
-  --accent-3:#ff6b8a;
+  --ink-soft:#c69c6d;     /* warm dusty rose, used for bezel links */
+  --accent:  #ffd166;     /* sunset gold */
+  --accent-2:#84e36b;     /* shooter-state green tint */
+  --accent-3:#ff8b6b;     /* warning / panic warm */
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }

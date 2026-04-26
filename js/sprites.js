@@ -707,35 +707,53 @@
   }
 
   // ---------------------------------------------------------------------------
-  //  Tiles — 32×32. Grass on top, dirt below, wooden floating platform.
+  //  Tiles — 32×32. Pounce's palette is a cozy autumn-sunset look: grass
+  //  reads as dry-amber meadow rather than bright midday green, dirt is a
+  //  warm walnut, and platforms are dark cherry-wood. The whole world should
+  //  feel like the cat is heading home for a nap as the day winds down.
+  //
+  //  Palette:
+  //   --grass-blade   #d6b86a   (sunlit grass tip)
+  //   --grass-base    #a89045   (warmer mid-grass)
+  //   --grass-shadow  #786226   (grass shadow)
+  //   --dirt-1        #7a4f2e   (walnut)
+  //   --dirt-2        #5a3a1a   (deep walnut)
+  //   --dirt-3        #a8703a   (sunlit walnut)
+  //   --wood-top      #b07344   (cherry-wood top)
+  //   --wood-mid      #7e4d28   (cherry shadow)
+  //   --wood-dark     #4a2a13   (dark base)
   // ---------------------------------------------------------------------------
 
   function drawGrass() {
     const c = makeCanvas(32, 32);
     const ctx = c.getContext('2d');
     // dirt base
-    ctx.fillStyle = '#8b5e3c';
+    ctx.fillStyle = '#7a4f2e';
     ctx.fillRect(0, 0, 32, 32);
     // grass band
-    ctx.fillStyle = '#5cb85c';
+    ctx.fillStyle = '#a89045';
     ctx.fillRect(0, 0, 32, 8);
-    ctx.fillStyle = '#7dd87d';
+    // sunlit tip
+    ctx.fillStyle = '#d6b86a';
     ctx.fillRect(0, 0, 32, 3);
     // grass blades poking up
-    ctx.fillStyle = '#5cb85c';
+    ctx.fillStyle = '#a89045';
     ctx.fillRect(2, 0, 1, 4);
     ctx.fillRect(7, 0, 2, 5);
     ctx.fillRect(13, 0, 1, 3);
     ctx.fillRect(19, 0, 2, 6);
     ctx.fillRect(25, 0, 1, 4);
     ctx.fillRect(29, 0, 2, 5);
+    // shadow under the grass band
+    ctx.fillStyle = '#786226';
+    ctx.fillRect(0, 7, 32, 1);
     // dirt freckles
-    ctx.fillStyle = '#6b4423';
+    ctx.fillStyle = '#5a3a1a';
     ctx.fillRect(4, 12, 2, 2);
     ctx.fillRect(14, 18, 2, 2);
     ctx.fillRect(22, 22, 2, 2);
     ctx.fillRect(8, 26, 2, 2);
-    ctx.fillStyle = '#a26d3f';
+    ctx.fillStyle = '#a8703a';
     ctx.fillRect(10, 16, 1, 1);
     ctx.fillRect(26, 10, 1, 1);
     ctx.fillRect(20, 28, 1, 1);
@@ -745,9 +763,9 @@
   function drawDirt() {
     const c = makeCanvas(32, 32);
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#8b5e3c';
+    ctx.fillStyle = '#7a4f2e';
     ctx.fillRect(0, 0, 32, 32);
-    ctx.fillStyle = '#6b4423';
+    ctx.fillStyle = '#5a3a1a';
     ctx.fillRect(4, 4, 2, 2);
     ctx.fillRect(14, 8, 2, 2);
     ctx.fillRect(22, 12, 2, 2);
@@ -755,7 +773,7 @@
     ctx.fillRect(20, 22, 2, 2);
     ctx.fillRect(28, 28, 2, 2);
     ctx.fillRect(2, 14, 2, 2);
-    ctx.fillStyle = '#a26d3f';
+    ctx.fillStyle = '#a8703a';
     ctx.fillRect(10, 14, 1, 1);
     ctx.fillRect(26, 6, 1, 1);
     ctx.fillRect(2, 24, 1, 1);
@@ -767,22 +785,22 @@
     const c = makeCanvas(32, 32);
     const ctx = c.getContext('2d');
     // wood top
-    ctx.fillStyle = '#c8884e';
+    ctx.fillStyle = '#b07344';
     ctx.fillRect(0, 0, 32, 16);
-    ctx.fillStyle = '#a26d3f';
+    ctx.fillStyle = '#7e4d28';
     ctx.fillRect(0, 12, 32, 4);
-    ctx.fillStyle = '#7d4f25';
+    ctx.fillStyle = '#4a2a13';
     ctx.fillRect(0, 16, 32, 16);
     // wood grain
-    ctx.fillStyle = '#a26d3f';
+    ctx.fillStyle = '#7e4d28';
     ctx.fillRect(2, 4, 8, 1);
     ctx.fillRect(14, 8, 6, 1);
     ctx.fillRect(22, 4, 8, 1);
     // bottom rim highlight
-    ctx.fillStyle = '#5b3618';
+    ctx.fillStyle = '#2a1607';
     ctx.fillRect(0, 30, 32, 2);
     // edge nails
-    ctx.fillStyle = '#3a2410';
+    ctx.fillStyle = '#1a0e04';
     ctx.fillRect(2, 19, 1, 1);
     ctx.fillRect(29, 19, 1, 1);
     return c;
@@ -1009,7 +1027,8 @@
   function drawCloud() {
     const c = makeCanvas(64, 22);
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#ffffff';
+    // Sunset cloud — cream lit from below, peach underside.
+    ctx.fillStyle = '#fff4d6';
     ctx.fillRect(8, 8, 48, 12);
     ctx.fillRect(16, 4, 32, 4);
     ctx.fillRect(22, 1, 22, 3);
@@ -1017,8 +1036,8 @@
     ctx.fillRect(56, 12, 4, 6);
     ctx.fillRect(0, 14, 4, 4);
     ctx.fillRect(60, 14, 4, 4);
-    // soft underside
-    ctx.fillStyle = '#dde6f0';
+    // peach underside (catches sunset light)
+    ctx.fillStyle = '#f5b87f';
     ctx.fillRect(8, 18, 48, 2);
     ctx.fillRect(16, 20, 32, 1);
     return c;

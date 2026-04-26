@@ -203,6 +203,21 @@
   plat(132, 7, 4);                   // cols 132–135, row 7 (1 up again)
   ent(133, 6, 'Y');                  // peak yarn — the climb's reward
 
+  // ----- HIDDEN SKY ROUTE -----
+  // From the row-7 plat (cols 132–135) the player can jump up-and-right to a
+  // tucked-away ledge at row 3 cols 137–150. Nothing on the row-7 path
+  // points to it — it just exists. The reward is a five-yarn cluster (250
+  // points) and a clear-line drop straight onto the Act-3 ground (col 144+).
+  // The single floating fish at (151, 5) is a faint visual hint: "wait,
+  // why's that fish unreachable?".
+  plat(137, 3, 14);
+  ent(139, 2, 'Y');
+  ent(141, 2, 'Y');
+  ent(143, 2, 'Y');
+  ent(145, 2, 'Y');
+  ent(147, 2, 'Y');
+  ent(151, 5, 'F');                  // hint treat — visible from below, looks suspicious
+
   // Sky-route end: drops back to ground at col 135.
   ground(135, 14);
   ent(138, 6, 'W');                  // first wasp — must be shot, not stomped
