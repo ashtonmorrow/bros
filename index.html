@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Whiskers' Adventure - A Cat Platformer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game-wrap">
+    <h1 class="title">Whiskers' Adventure</h1>
+    <canvas id="game" width="800" height="480"
+            aria-label="Side-scrolling cat platformer"></canvas>
+    <p class="controls">
+      <strong>Move</strong>: A / D or &larr; / &rarr; &nbsp;|&nbsp;
+      <strong>Jump</strong>: W, &uarr;, or Space &nbsp;|&nbsp;
+      <strong>Pause</strong>: P
+    </p>
+    <p class="hint">Press any key on the title screen to start.</p>
+  </main>
+
+  <!-- Order matters: shared globals are defined top-down. -->
+  <script src="js/sprites.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/level.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
