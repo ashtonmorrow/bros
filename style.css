@@ -102,6 +102,62 @@ body {
   margin-right: 6px;
 }
 
+/* Each audio-row is a button + its volume slider as one inline group. */
+.audio-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Retro-styled range slider. WebKit + Firefox both supported via vendor
+   pseudo-elements — keep both. Track is dim, thumb is the accent gold. */
+.audio-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 90px;
+  height: 16px;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  margin: 0;
+  padding: 0;
+}
+.audio-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  background: var(--bg-3);
+  border: 1px solid var(--bezel);
+  border-radius: 2px;
+}
+.audio-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--accent);
+  border: 1px solid #000;
+  border-radius: 50%;
+  margin-top: -5px;     /* (track-h - thumb-h) / 2, ish */
+  cursor: pointer;
+  box-shadow: 0 0 4px rgba(255, 209, 102, 0.6);
+}
+.audio-slider::-moz-range-track {
+  height: 4px;
+  background: var(--bg-3);
+  border: 1px solid var(--bezel);
+  border-radius: 2px;
+}
+.audio-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--accent);
+  border: 1px solid #000;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 4px rgba(255, 209, 102, 0.6);
+}
+.audio-slider:focus::-webkit-slider-thumb { background: var(--accent-2); }
+.audio-slider:focus::-moz-range-thumb     { background: var(--accent-2); }
+
 /* ----- Top bezel: HOME / README on left, brand center, sister-projects right ----- */
 .bezel-title {
   display: flex;

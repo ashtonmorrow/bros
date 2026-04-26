@@ -81,6 +81,29 @@
   // one without losing the other. The game UI persists the preference; this
   // module just respects it. setSfxEnabled() is the public hook.
   let sfxOn = true;
+  // Volume scalars (0..1). Multiplied with the on/off flag to compute the
+  // gain — mute is "the gain is 0", reduced volume is "the gain is < 1".
+  let sfxVol = 1;
+  let musicVol = 1;
+  function clamp01(v) { v = Number(v); return isNaN(v) ? 1 : Math.max(0, Math.min(1, v)); }
+  function applySfxGain() {
+    const c = ensureGains();
+    if (c && sfxGain) {
+      sfxGain.gain.cancelScheduledValues(c.currentTime);
+      sfxGain.gain.value = sfxOn ? sfxVol : 0;
+    }
+  }
+  function applyMusicGain() {
+    const c = ensureGains();
+    if (c && musicGain) {
+      musicGain.gain.cancelScheduledValues(c.currentTime);
+      // Only apply musicVol if the music engine is currently playing —
+      // otherwise we'd start the music humming when the volume slider
+      // changes during the title screen.
+      const target = (_music && _music.playing) ? musicVol : 0;
+      musicGain.gain.value = target;
+    }
+  }
 
   global.Audio = {
     // First-keypress hook to unlock the AudioContext on browsers that suspend it.
@@ -91,21 +114,12 @@
 
     // Independent SFX mute. Music toggle lives in game.js because the music
     // state machine is more involved (start/stop, tempo, panic mode).
-    // Snaps the sfxGain to its target value with NO ramp — any tones that
-    // were already scheduled get silenced on the same audio frame — and
-    // skips creating new ones via the SFX_KEYS gate further down.
-    setSfxEnabled(on) {
-      sfxOn = !!on;
-      const c = ensureGains();
-      if (c && sfxGain) {
-        sfxGain.gain.cancelScheduledValues(c.currentTime);
-        // Direct assignment is equivalent to setValueAtTime(v, now) AND it
-        // updates AudioParam.value as observed by the next read — important
-        // when the gate below reads it.
-        sfxGain.gain.value = sfxOn ? 1 : 0;
-      }
-    },
+    // Snaps the sfxGain to its target value with NO ramp.
+    setSfxEnabled(on) { sfxOn = !!on; applySfxGain(); },
     isSfxEnabled() { return sfxOn; },
+    /** Volume scalar 0..1. Persists across mute/unmute. */
+    setSfxVolume(v) { sfxVol = clamp01(v); applySfxGain(); },
+    setMusicVolume(v) { musicVol = clamp01(v); applyMusicGain(); },
 
     jump() {
       tone({ freq: 360, type: 'square', dur: 0.18, vol: 0.14, slide: 280 });
@@ -204,29 +218,19 @@
     // Schedules one full cycle at a time and re-schedules just before the
     // current one ends. Cheap (~48 oscillators per 7-second loop) and gives
     // the level a "real game" pulse with no audio files.
-    // Reset the music gain to full and resume scheduling. Snap to 1 with
-    // no ramp; the AudioContext will pick it up on the next audio frame.
+    // Snap the music gain to the current volume scalar and start the
+    // scheduler. _music.start() being playing=true is what applyMusicGain
+    // reads when the slider moves later, so set it before applying.
     musicStart() {
-      const c = ensureGains();
-      if (c && musicGain) {
-        musicGain.gain.cancelScheduledValues(c.currentTime);
-        musicGain.gain.value = 1;
-      }
       _music.start();
+      applyMusicGain();
     },
     // Drop the music gain to 0 immediately so any pre-scheduled notes that
     // would otherwise keep ringing for up to a 4-bar loop are silent on the
     // same audio frame, then stop the scheduler so no new notes are queued.
-    // No fade — fades are unreliable because reading gain.value mid-ramp
-    // returns the most recently-SET value, not the interpolated one, so a
-    // ramp from-current-to-0 can produce a brief pop.
     musicStop() {
-      const c = ensureGains();
-      if (c && musicGain) {
-        musicGain.gain.cancelScheduledValues(c.currentTime);
-        musicGain.gain.value = 0;
-      }
       _music.stop();
+      applyMusicGain();
     },
     /** Multiplier on the base tempo (1.0 default, 1.4 for the last-30-s panic). */
     musicTempo(mul) { _music.tempoMul = mul; },

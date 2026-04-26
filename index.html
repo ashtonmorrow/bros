@@ -132,15 +132,25 @@
     </p>
   </main>
 
-  <!-- Audio controls live below the game frame — instant on/off. -->
+  <!-- Audio controls live below the game frame — instant on/off + volume. -->
   <div class="frame frame-controls">
     <span class="game-controls-label">AUDIO</span>
-    <button id="music-toggle" class="bezel-link bezel-button"
-            type="button" aria-pressed="true"
-            title="Toggle music (M)">&#9834; MUSIC ON</button>
-    <button id="sfx-toggle" class="bezel-link bezel-button"
-            type="button" aria-pressed="true"
-            title="Toggle sound effects (N)">&#9678; FX ON</button>
+    <span class="audio-row">
+      <button id="music-toggle" class="bezel-link bezel-button"
+              type="button" aria-pressed="true"
+              title="Toggle music (M)">&#9834; MUSIC ON</button>
+      <input id="music-volume" class="audio-slider" type="range"
+             min="0" max="100" step="1" value="100"
+             aria-label="Music volume">
+    </span>
+    <span class="audio-row">
+      <button id="sfx-toggle" class="bezel-link bezel-button"
+              type="button" aria-pressed="true"
+              title="Toggle sound effects (N)">&#9678; FX ON</button>
+      <input id="sfx-volume" class="audio-slider" type="range"
+             min="0" max="100" step="1" value="100"
+             aria-label="Sound-effects volume">
+    </span>
   </div>
 
   <!-- Order matters: shared globals are defined top-down. -->

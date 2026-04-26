@@ -137,6 +137,25 @@
   // Apply the saved preference at boot so the gate matches the visual state.
   Audio.setSfxEnabled(sfxEnabled);
 
+  // ---- per-channel volume sliders ----
+  const MUSIC_VOL_KEY = 'pounce_music_vol';
+  const SFX_VOL_KEY   = 'pounce_sfx_vol';
+  function loadVol(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw == null) return 1;
+      const v = parseFloat(raw);
+      return isNaN(v) ? 1 : Math.max(0, Math.min(1, v));
+    } catch (e) { return 1; }
+  }
+  function saveVol(key, v) {
+    try { localStorage.setItem(key, String(v)); } catch (e) {}
+  }
+  let musicVolume = loadVol(MUSIC_VOL_KEY);
+  let sfxVolume   = loadVol(SFX_VOL_KEY);
+  Audio.setMusicVolume(musicVolume);
+  Audio.setSfxVolume(sfxVolume);
+
   // -------------------------------------------------------------------------
   //  TOP-3 LEADERBOARD — global, Supabase-backed (cat-ski's pattern)
   // -------------------------------------------------------------------------
@@ -369,8 +388,18 @@
     projectiles: [],        // fishbones currently in flight
     particles: [],          // cosmetic puffs / sparkles
     flash: 0,               // brief screen flash on stomp (cosmetic)
+    shakeT: 0,              // remaining shake duration in seconds
+    shakeAmp: 0,            // shake amplitude in pixels
     deathTimer: 0,
   };
+
+  // Trigger a brief camera shake. New shakes don't override stronger ones
+  // already in flight — `Math.max` keeps the bigger of the two so a stomp
+  // that lands during a pound doesn't downgrade the pound's shake.
+  function shake(durSec, amp) {
+    if (durSec > game.shakeT)  game.shakeT  = durSec;
+    if (amp     > game.shakeAmp) game.shakeAmp = amp;
+  }
 
   // ------ helpers ------------------------------------------------------------
   function rectOverlap(a, b) {
@@ -688,6 +717,39 @@
     });
   }
 
+  // ---- volume slider wiring ----
+  function wireSlider(id, getter, setter, applyFn, storeKey) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = String(Math.round(getter() * 100));
+    const onInput = () => {
+      const v = parseInt(el.value, 10) / 100;
+      setter(v);
+      applyFn(v);
+      saveVol(storeKey, v);
+    };
+    el.addEventListener('input', onInput);
+    // After releasing the slider, drop focus back to the canvas so SPACE
+    // / arrow keys go to the game instead of nudging the slider.
+    el.addEventListener('change', () => { try { el.blur(); } catch (e) {} canvas.focus(); });
+    // Stop game keys from reaching the document handler while focused.
+    el.addEventListener('keydown', (e) => e.stopPropagation());
+  }
+  wireSlider(
+    'music-volume',
+    () => musicVolume,
+    (v) => { musicVolume = v; },
+    (v) => Audio.setMusicVolume(v),
+    MUSIC_VOL_KEY
+  );
+  wireSlider(
+    'sfx-volume',
+    () => sfxVolume,
+    (v) => { sfxVolume = v; },
+    (v) => Audio.setSfxVolume(v),
+    SFX_VOL_KEY
+  );
+
   function leftKey()  { return !!(keys['a'] || keys['arrowleft']); }
   function rightKey() { return !!(keys['d'] || keys['arrowright']); }
   function jumpKey()  { return !!(keys['w'] || keys['arrowup'] || keys[' ']); }
@@ -837,6 +899,7 @@
       spawnPoundBurst(p);
       Audio.poundLand();
       game.flash = 0.06;
+      shake(0.18, 4);          // ground impact
     }
 
     // --- box hit detection ---
@@ -1059,6 +1122,7 @@
         p.poundLockout = POUND_LOCKOUT;
         game.score += 200;
         game.flash = 0.12;
+        shake(0.22, 5);         // big crunch
         Audio.stomp();
         continue;
       }
@@ -1083,6 +1147,7 @@
         p.vy = -7; // stomp bounce
         game.score += 100;
         game.flash = 0.08;
+        shake(0.12, 2.5);
         Audio.stomp();
       } else {
         hurtPlayer();
@@ -1092,6 +1157,7 @@
 
   function hurtPlayer() {
     const p = game.player;
+    shake(0.22, 4);
     // If the cat is powered up (big or shooter), shrink to small instead of
     // dying — Mario-style: any hit takes the cat all the way back to small.
     if (p.power === 'big' || p.power === 'shooter') {
@@ -1296,6 +1362,7 @@
           e.h = 6;
           pr.alive = false;
           game.score += 200;
+          shake(0.10, 2);
           Audio.stomp();
           break;
         }
@@ -1310,6 +1377,10 @@
   function updateItems(dt) {
     for (const item of game.items) item.bob += dt * 3;
     if (game.flash > 0) game.flash = Math.max(0, game.flash - dt);
+    if (game.shakeT > 0) {
+      game.shakeT = Math.max(0, game.shakeT - dt);
+      if (game.shakeT === 0) game.shakeAmp = 0;
+    }
     if (game.player && game.player.powerXfade > 0) {
       game.player.powerXfade = Math.max(0, game.player.powerXfade - dt);
     }
@@ -1754,17 +1825,61 @@
   });
 
   function drawPaused() {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillStyle = 'rgba(15, 12, 28, 0.92)';
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
-    drawCenteredText(
-      [
-        { text: 'PAUSED',
-          font: 'bold 36px ui-monospace, monospace',
-          color: '#fff', gap: 40 },
-        { text: 'Press P to resume', color: '#bbb' },
-      ],
-      { startY: VIEW_H / 2 - 20 }
-    );
+
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Title
+    ctx.font = 'bold 36px ui-monospace, monospace';
+    ctx.fillStyle = '#000';
+    ctx.fillText('PAUSED', VIEW_W / 2 + 2, 70);
+    ctx.fillStyle = '#ffd166';
+    ctx.fillText('PAUSED', VIEW_W / 2, 68);
+
+    // Active cat preview (uses current power state so big/shooter shows up
+    // proudly rather than reverting to the small idle).
+    if (game.player) {
+      const sizeKey = game.player.power || 'small';
+      const set = Sprites.cats[selectedCat] && Sprites.cats[selectedCat][sizeKey];
+      if (set && set.idle) {
+        const sprite = set.idle;
+        ctx.drawImage(sprite, VIEW_W / 2 - sprite.width / 2, 100);
+      }
+    }
+
+    // Controls block — two columns of action / keys.
+    ctx.font = 'bold 13px ui-monospace, monospace';
+    const rows = [
+      ['MOVE',     'A / D  or  ← / →'],
+      ['JUMP',     'W  ↑  Space'],
+      ['POUNCE',   'S  ↓   (in mid-air)'],
+      ['SHOOT',    'X     (when powered)'],
+      ['PAUSE',    'P'],
+      ['RESTART',  'R  ·  Enter'],
+      ['MUSIC',    'M     (' + (musicEnabled ? 'on' : 'off') + ')'],
+      ['SOUND FX', 'N     (' + (sfxEnabled   ? 'on' : 'off') + ')'],
+    ];
+    const blockTop = 200;
+    const lineH = 22;
+    const labelX = VIEW_W / 2 - 20;
+    const valueX = VIEW_W / 2 + 20;
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#84e36b';
+    rows.forEach((r, i) => ctx.fillText(r[0], labelX, blockTop + i * lineH));
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#dfe6f0';
+    rows.forEach((r, i) => ctx.fillText(r[1], valueX, blockTop + i * lineH));
+
+    // Bottom prompt
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 16px ui-monospace, monospace';
+    ctx.fillStyle = '#fff';
+    ctx.fillText('Press P to resume', VIEW_W / 2, VIEW_H - 32);
+
+    ctx.restore();
   }
 
   function drawDead() {
@@ -1815,6 +1930,17 @@
   }
 
   function render() {
+    // Camera shake is applied as a translate ONLY around the world layers.
+    // The HUD and overlays draw on top in screen space so they stay rock-
+    // steady — shaking the score readout looks like a bug, not a feature.
+    let shx = 0, shy = 0;
+    if (game.shakeT > 0 && game.shakeAmp > 0) {
+      shx = (Math.random() - 0.5) * 2 * game.shakeAmp;
+      shy = (Math.random() - 0.5) * 2 * game.shakeAmp;
+    }
+
+    ctx.save();
+    if (shx || shy) ctx.translate(shx, shy);
     drawSky();
     drawClouds();
     drawHills();
@@ -1827,6 +1953,8 @@
     drawParticles();
     drawPlayer();
     drawFlash();
+    ctx.restore();
+
     drawHUD();
 
     if (game.mode === 'intro') drawIntro();
