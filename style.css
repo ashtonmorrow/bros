@@ -238,6 +238,76 @@ body {
   .lb-score { min-width: 30px; }
 }
 
+/* ----- Touch controls overlay -----
+   Hidden by default. Shown when the body has the `touch-active` class —
+   either set on first touch event, or by a `(pointer: coarse)` media-query
+   match. Two clusters of buttons sit absolutely-positioned over the canvas. */
+.touch-controls {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;          /* the cluster is invisible to input */
+  display: none;
+  z-index: 5;
+}
+body.touch-active .touch-controls { display: block; }
+@media (pointer: coarse) {
+  .touch-controls { display: block; }
+}
+
+.touch-pad {
+  position: absolute;
+  bottom: 6%;
+  left: 3%;
+  display: flex;
+  gap: 14px;
+}
+.touch-actions {
+  position: absolute;
+  bottom: 6%;
+  right: 3%;
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  grid-template-rows: repeat(2, auto);
+  gap: 10px;
+  align-items: end;
+  justify-items: end;
+}
+/* Tile the action buttons so JUMP is bottom-right (the most-used spot for
+   right-thumb access), POUNCE sits to JUMP's left, SHOOT above POUNCE.
+       SHOOT  .
+       POUNCE JUMP                                               */
+.touch-shoot  { grid-column: 1; grid-row: 1; }
+.touch-pounce { grid-column: 1; grid-row: 2; }
+.touch-jump   { grid-column: 2; grid-row: 2; width: 84px !important; height: 84px !important; font-size: 32px !important; }
+
+.touch-btn {
+  pointer-events: auto;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(15, 12, 28, 0.55);
+  color: var(--accent);
+  border: 2px solid rgba(255, 209, 102, 0.4);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 24px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-shadow: 0 0 6px rgba(255, 209, 102, 0.5);
+  transition: background 80ms, transform 80ms;
+}
+.touch-btn.pressed,
+.touch-btn:active {
+  background: rgba(255, 209, 102, 0.5);
+  color: var(--bg-2);
+  transform: scale(0.94);
+}
+
 /* ----- Name-entry overlay (high-score prompt) ----- */
 .lb-entry {
   position: absolute;
@@ -330,6 +400,14 @@ canvas#game {
   cursor: crosshair;
   outline: none;
   background: #6ec5ff;
+}
+
+/* High-contrast mode: boost contrast + saturation enough that similar-hued
+   entities (the blue fish treat vs the blue magic fish, the yellow wasp vs
+   the yellow box rivets, etc.) are easier to tell apart. Applied as a CSS
+   filter on the canvas so it doesn't require re-baking every sprite. */
+body.high-contrast canvas#game {
+  filter: contrast(1.3) saturate(1.5) brightness(1.05);
 }
 
 /* ----- Below-frame controls hint ----- */

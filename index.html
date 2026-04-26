@@ -110,6 +110,22 @@
       <canvas id="game" width="800" height="480"
               aria-label="Side-scrolling cat platformer"></canvas>
 
+      <!-- Touch controls — hidden by default, shown when body.touch-active.
+           Buttons are positioned relative to the screen-wrap so they scale
+           with the canvas. Each button writes to the same `keys` object the
+           keyboard handlers use, so all input flows through one code path. -->
+      <div class="touch-controls" aria-hidden="true">
+        <div class="touch-pad">
+          <button class="touch-btn touch-left"  type="button" data-key="arrowleft"  aria-label="Move left">◀</button>
+          <button class="touch-btn touch-right" type="button" data-key="arrowright" aria-label="Move right">▶</button>
+        </div>
+        <div class="touch-actions">
+          <button class="touch-btn touch-shoot"  type="button" data-key="x"          aria-label="Shoot">⨯</button>
+          <button class="touch-btn touch-pounce" type="button" data-key="arrowdown"  aria-label="Down-pounce">▼</button>
+          <button class="touch-btn touch-jump"   type="button" data-key=" "          aria-label="Jump">▲</button>
+        </div>
+      </div>
+
       <!-- Name-entry overlay. Hidden until the player cracks the top three;
            shown over the win / game-over screen. -->
       <div id="lb-entry" class="lb-entry hidden" role="dialog" aria-label="High score entry">
@@ -152,6 +168,9 @@
              min="0" max="100" step="1" value="100"
              aria-label="Sound-effects volume">
     </span>
+    <button id="contrast-toggle" class="bezel-link bezel-button"
+            type="button" aria-pressed="false"
+            title="Toggle high-contrast mode (C)">&#9728; HC OFF</button>
   </div>
 
   <!-- Order matters: shared globals are defined top-down. -->

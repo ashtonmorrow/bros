@@ -137,6 +137,153 @@
   // Apply the saved preference at boot so the gate matches the visual state.
   Audio.setSfxEnabled(sfxEnabled);
 
+  // -------------------------------------------------------------------------
+  //  MID-RUN SAVE STATE
+  // -------------------------------------------------------------------------
+  // Snapshot the active run to localStorage every couple of seconds. On a
+  // fresh page load, the title screen offers RESUME instead of START if a
+  // valid snapshot exists.
+  //
+  // Schema (`v: 1`):
+  //   level / difficulty / selectedCat        — context the run was started in
+  //   score / lives / collected / timer       — run progress
+  //   levelTime / cameraX                     — camera + timer continuity
+  //   player {x,y,vx,vy,power,w,h,facing,
+  //           invuln, shootCooldown}          — actor state
+  //   tiles (string[])                        — the MUTATED grid (Q→@ etc)
+  //   items (0|1 flags)                       — which collectibles still alive
+  //   enemies (0|1|2 flags)                   — alive | stomped | gone
+  //   timestamp                               — for staleness checks
+  // -------------------------------------------------------------------------
+  const SNAPSHOT_KEY = 'pounce_snapshot';
+  const SNAPSHOT_INTERVAL = 2.0;     // seconds between auto-saves
+  const SNAPSHOT_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
+  let snapshotTimer = 0;
+
+  function saveSnapshot() {
+    if (game.mode !== 'playing') return;
+    const p = game.player;
+    if (!p) return;
+    const snap = {
+      v: 1,
+      level: currentLevel,
+      difficulty,
+      selectedCat,
+      score: game.score,
+      lives: game.lives,
+      collected: game.collected,
+      timer: game.timer,
+      levelTime: game.levelTime,
+      cameraX: game.cameraX,
+      tempoBoosted: !!game.tempoBoosted,
+      player: {
+        x: p.x, y: p.y, vx: p.vx, vy: p.vy,
+        power: p.power, w: p.w, h: p.h,
+        facing: p.facing, invuln: p.invuln,
+        shootCooldown: p.shootCooldown,
+      },
+      tiles: tiles.map((r) => r.join('')),
+      items:   game.items.map((i)   => i.alive ? 1 : 0),
+      enemies: game.enemies.map((e) => !e.alive ? 0 : (e.stomped ? 2 : 1)),
+      timestamp: Date.now(),
+    };
+    try { localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snap)); } catch (e) {}
+  }
+
+  function clearSnapshot() {
+    try { localStorage.removeItem(SNAPSHOT_KEY); } catch (e) {}
+  }
+
+  function loadSnapshot() {
+    try {
+      const raw = localStorage.getItem(SNAPSHOT_KEY);
+      if (!raw) return null;
+      const snap = JSON.parse(raw);
+      if (!snap || snap.v !== 1) return null;
+      // Stale or future-dated → ignore.
+      if (typeof snap.timestamp === 'number') {
+        const age = Date.now() - snap.timestamp;
+        if (age < 0 || age > SNAPSHOT_MAX_AGE_MS) return null;
+      }
+      // Sanity-check the level the snapshot was for.
+      if (typeof snap.level !== 'number' || snap.level < 0 || snap.level >= LEVEL_COUNT) {
+        return null;
+      }
+      return snap;
+    } catch (e) { return null; }
+  }
+
+  function resumeFromSnapshot(snap) {
+    currentLevel = snap.level;
+    persistCurrentLevel();
+    if (snap.difficulty && DIFFICULTY[snap.difficulty]) {
+      difficulty = snap.difficulty;
+    }
+    if (snap.selectedCat && Sprites.cats[snap.selectedCat]) {
+      selectedCat = snap.selectedCat;
+    }
+    // Spin the level up so we can overwrite onto fresh-loaded entity arrays.
+    loadLevel();
+    TIMER_START = diffCfg().timer;
+    START_LIVES = diffCfg().lives;
+    game.lives = snap.lives;
+    game.score = snap.score;
+    game.collected = snap.collected;
+    game.timer = snap.timer;
+    game.levelTime = snap.levelTime;
+    game.cameraX = snap.cameraX || 0;
+    game.tempoBoosted = !!snap.tempoBoosted;
+    Object.assign(game.player, snap.player);
+    if (Array.isArray(snap.tiles)) tiles = snap.tiles.map((r) => r.split(''));
+    if (Array.isArray(snap.items)) {
+      const n = Math.min(game.items.length, snap.items.length);
+      for (let i = 0; i < n; i++) game.items[i].alive = !!snap.items[i];
+    }
+    if (Array.isArray(snap.enemies)) {
+      const n = Math.min(game.enemies.length, snap.enemies.length);
+      for (let i = 0; i < n; i++) {
+        const s = snap.enemies[i];
+        if (s === 0) game.enemies[i].alive = false;
+        else if (s === 2) { game.enemies[i].alive = true; game.enemies[i].stomped = true; }
+        else game.enemies[i].alive = true;
+      }
+    }
+    game.mode = 'playing';
+    Audio.musicTempo(game.tempoBoosted ? 1.4 : 1.0);
+    tryStartMusic();
+  }
+
+  // Look for a stale-or-fresh snapshot once at boot; the title screen
+  // uses this to switch the START prompt between "fresh run" and "resume".
+  let pendingSnapshot = loadSnapshot();
+
+  // ---- high-contrast mode (accessibility) ----
+  // Boosts the canvas's contrast + saturation via a CSS filter so similar-
+  // hued entities are easier to distinguish. Body class drives the filter;
+  // localStorage persists the preference.
+  const HC_STORAGE_KEY = 'pounce_high_contrast';
+  let highContrast = false;
+  try {
+    if (localStorage.getItem(HC_STORAGE_KEY) === '1') highContrast = true;
+  } catch (e) {}
+  function syncHcButton() {
+    const btn = document.getElementById('contrast-toggle');
+    if (!btn) return;
+    btn.textContent = highContrast ? '☀ HC ON' : '☀ HC OFF';
+    btn.setAttribute('aria-pressed', highContrast ? 'true' : 'false');
+  }
+  function applyHc() {
+    if (highContrast) document.body.classList.add('high-contrast');
+    else              document.body.classList.remove('high-contrast');
+  }
+  function toggleHc() {
+    highContrast = !highContrast;
+    try { localStorage.setItem(HC_STORAGE_KEY, highContrast ? '1' : '0'); } catch (e) {}
+    applyHc();
+    syncHcButton();
+  }
+  applyHc();
+
   // ---- per-channel volume sliders ----
   const MUSIC_VOL_KEY = 'pounce_music_vol';
   const SFX_VOL_KEY   = 'pounce_sfx_vol';
@@ -348,8 +495,31 @@
     });
   }
 
-  const TIMER_START = 200; // seconds — stage timer
-  const START_LIVES = 3;
+  // Difficulty preset table. Each entry overrides a handful of tunables —
+  // lives, timer, enemy speed multiplier. The selected mode is read at
+  // restart() time, so changing it on the title screen takes effect on the
+  // next run.
+  const DIFFICULTY = {
+    easy:   { lives: 5, timer: 280, enemyMul: 0.75, label: 'EASY',   blurb: '5 lives · slow enemies · long timer' },
+    normal: { lives: 3, timer: 200, enemyMul: 1.00, label: 'NORMAL', blurb: '3 lives · standard enemies' },
+    hard:   { lives: 1, timer: 150, enemyMul: 1.30, label: 'HARD',   blurb: '1 life · fast enemies · short timer' },
+  };
+  const DIFFICULTY_ORDER = ['easy', 'normal', 'hard'];
+  const DIFFICULTY_STORAGE_KEY = 'pounce_difficulty';
+  let difficulty = 'normal';
+  try {
+    const saved = localStorage.getItem(DIFFICULTY_STORAGE_KEY);
+    if (saved && DIFFICULTY[saved]) difficulty = saved;
+  } catch (e) {}
+  function persistDifficulty() {
+    try { localStorage.setItem(DIFFICULTY_STORAGE_KEY, difficulty); } catch (e) {}
+  }
+  function diffCfg() { return DIFFICULTY[difficulty]; }
+
+  // These are now per-difficulty. Mutated each restart() so they always
+  // match the currently-selected preset.
+  let TIMER_START = DIFFICULTY[difficulty].timer;
+  let START_LIVES = DIFFICULTY[difficulty].lives;
 
   // ------ canvas + state -----------------------------------------------------
   const canvas = document.getElementById('game');
@@ -530,13 +700,14 @@
 
   function makeEnemy(type, px, py) {
     const dims = ENEMY_DIMS[type] || ENEMY_DIMS.B;
+    const mul = diffCfg().enemyMul;
     const e = {
       type,
       x: px,
       y: py,
       w: dims.w,
       h: dims.h,
-      vx: dims.vx,
+      vx: dims.vx * mul,           // difficulty scales enemy speed
       vy: 0,
       flying: dims.flying,
       alive: true,
@@ -628,6 +799,10 @@
   }
 
   function restart() {
+    // Re-read the difficulty config in case the player changed it on the
+    // title screen between runs.
+    TIMER_START = diffCfg().timer;
+    START_LIVES = diffCfg().lives;
     game.lives = START_LIVES;
     game.score = 0;
     game.collected = 0;
@@ -696,10 +871,12 @@
 
     const k = e.key.toLowerCase();
 
-    // Audio toggles short-circuit BEFORE any mode-specific routing so they
-    // work instantly in any mode, including the intro screen and game-over.
+    // Audio + accessibility toggles short-circuit BEFORE any mode-specific
+    // routing so they work instantly in any mode, including the intro
+    // screen and game-over.
     if (k === 'm') { toggleMusic(); return; }
     if (k === 'n') { toggleSfx();   return; }
+    if (k === 'c') { toggleHc();    return; }
 
     // ---- intro screen: arrows cycle the cat picker, anything else starts ----
     if (game.mode === 'intro') {
@@ -733,14 +910,32 @@
         }
         return;
       }
-      // Any "start" key launches the run on the currently-selected level.
-      // restart() reloads the level (picking up any level swap from the
-      // 1/2/3/L keys above) and resets all per-run state.
+      // Difficulty hotkeys: E = easy, H = hard, default Space-press uses
+      // whatever's currently selected.
+      if (k === 'e') { difficulty = 'easy';   persistDifficulty(); return; }
+      if (k === 'h') { difficulty = 'hard';   persistDifficulty(); return; }
+      // No key for "normal" specifically — clicking the chip handles it,
+      // and players can also tap E or H twice to step around.
+      // R on the intro wipes the saved snapshot so the next Start is fresh.
+      if (k === 'r') {
+        clearSnapshot();
+        pendingSnapshot = null;
+        return;
+      }
+      // Any "start" key launches the run. If a snapshot is queued (loaded
+      // at boot, not yet wiped), resume from it; otherwise call restart()
+      // which reloads the level and resets per-run state.
       if (
         k === ' ' || k === 'enter' || k === 'w' || k === 'arrowup' ||
         k === 's' || k === 'arrowdown'
       ) {
-        restart();
+        if (pendingSnapshot) {
+          const snap = pendingSnapshot;
+          pendingSnapshot = null;
+          resumeFromSnapshot(snap);
+        } else {
+          restart();
+        }
         return;
       }
       // Other keys (e.g. modifiers) — ignore on the title screen.
@@ -800,6 +995,16 @@
     });
   }
 
+  syncHcButton();
+  const hcBtn = document.getElementById('contrast-toggle');
+  if (hcBtn) {
+    hcBtn.addEventListener('click', () => {
+      toggleHc();
+      try { hcBtn.blur(); } catch (e) {}
+      canvas.focus();
+    });
+  }
+
   // ---- volume slider wiring ----
   function wireSlider(id, getter, setter, applyFn, storeKey) {
     const el = document.getElementById(id);
@@ -832,6 +1037,47 @@
     (v) => Audio.setSfxVolume(v),
     SFX_VOL_KEY
   );
+
+  // ---- touch-control wiring ----
+  // Each .touch-btn has a data-key matching one of the keys checked by the
+  // input helpers (arrowleft / arrowright / space / arrowdown / x). On
+  // pointerdown we set keys[k] = true, on pointerup / cancel / leave we
+  // clear it. setPointerCapture so a finger that drags off the button
+  // still releases cleanly.
+  function bindTouchButton(btn) {
+    const key = btn.dataset && btn.dataset.key;
+    if (!key) return;
+    const press = (e) => {
+      e.preventDefault();
+      keys[key] = true;
+      btn.classList.add('pressed');
+      Audio.resume();              // first-press unlocks the AudioContext
+      try { btn.setPointerCapture(e.pointerId); } catch (err) {}
+    };
+    const release = () => {
+      keys[key] = false;
+      btn.classList.remove('pressed');
+    };
+    btn.addEventListener('pointerdown',   press);
+    btn.addEventListener('pointerup',     release);
+    btn.addEventListener('pointercancel', release);
+    btn.addEventListener('pointerleave',  release);
+    // Also clear if the button gets blurred (e.g. focus moves elsewhere).
+    btn.addEventListener('blur', release);
+    // Stop the click event from bubbling up to the canvas's intro picker.
+    btn.addEventListener('click', (e) => e.stopPropagation());
+  }
+  document.querySelectorAll('.touch-btn').forEach(bindTouchButton);
+
+  // Switch to touch mode the first time we see a real touch event. This
+  // beats the pure-CSS @media (pointer: coarse) on hybrid devices that
+  // report mouse-and-touch (e.g. iPad with magic keyboard) — the player
+  // still gets the buttons the moment they put a finger on the screen.
+  const onFirstTouch = () => {
+    document.body.classList.add('touch-active');
+    window.removeEventListener('touchstart', onFirstTouch);
+  };
+  window.addEventListener('touchstart', onFirstTouch, { passive: true });
 
   function leftKey()  { return !!(keys['a'] || keys['arrowleft']); }
   function rightKey() { return !!(keys['d'] || keys['arrowright']); }
@@ -1340,6 +1586,9 @@
       if (game.dyingKind === 'final') {
         game.mode = 'dead';
         game.deathTimer = 0;
+        // Final death wipes the resume point — you can't pick up from
+        // a state where you're already game-over.
+        clearSnapshot();
         if (qualifiesForLeaderboard(game.score)) {
           setTimeout(showLbEntry, 400);
         }
@@ -1556,6 +1805,9 @@
       game.score += game.timer * 5;
       Audio.win();
       Audio.musicStop();
+      // Clear the mid-run snapshot — the run is over, the next start should
+      // be from the level-select / fresh state, not mid-play.
+      clearSnapshot();
 
       // Persist progress: best-score-on-this-level, unlock-next-level.
       if (game.score > (progress.bestScores[currentLevel] || 0)) {
@@ -1606,6 +1858,13 @@
       // Respawn fade-out (after a pit teleport) decays during play.
       if (game.respawnFadeT > 0) {
         game.respawnFadeT = Math.max(0, game.respawnFadeT - dt);
+      }
+
+      // Periodic snapshot for the mid-run resume feature.
+      snapshotTimer += dt;
+      if (snapshotTimer >= SNAPSHOT_INTERVAL) {
+        saveSnapshot();
+        snapshotTimer = 0;
       }
     } else if (game.mode === 'dying') {
       updateDying(dt);
@@ -1898,9 +2157,9 @@
 
   // ---- Level chips geometry (intro screen) ----
   const CHIP_W = 132;
-  const CHIP_H = 56;
+  const CHIP_H = 50;
   const CHIP_GAP = 14;
-  const CHIP_Y = 320;
+  const CHIP_Y = 308;
   function chipX(i) {
     const total = LEVEL_COUNT * CHIP_W + (LEVEL_COUNT - 1) * CHIP_GAP;
     const startX = (VIEW_W - total) / 2;
@@ -1911,6 +2170,17 @@
   }
   function levelUnlocked(i) {
     return i < progress.unlocked;
+  }
+
+  // ---- Difficulty chips geometry (intro screen) ----
+  const DCHIP_W = 132;
+  const DCHIP_H = 38;
+  const DCHIP_GAP = 14;
+  const DCHIP_Y = 376;
+  function dchipX(i) {
+    const total = DIFFICULTY_ORDER.length * DCHIP_W + (DIFFICULTY_ORDER.length - 1) * DCHIP_GAP;
+    const startX = (VIEW_W - total) / 2;
+    return startX + i * (DCHIP_W + DCHIP_GAP);
   }
 
   function drawIntro() {
@@ -2025,19 +2295,50 @@
       }
     }
 
-    // Bottom prompt
-    ctx.font = 'bold 16px ui-monospace, monospace';
-    ctx.fillStyle = '#fff';
-    ctx.textAlign = 'center';
-    ctx.fillText('Press SPACE / W / Up to start', VIEW_W / 2, 410);
+    // ----- Difficulty chips -----
+    for (let i = 0; i < DIFFICULTY_ORDER.length; i++) {
+      const key = DIFFICULTY_ORDER[i];
+      const cfg = DIFFICULTY[key];
+      const x = dchipX(i);
+      const selected = key === difficulty;
 
-    ctx.font = '11px ui-monospace, monospace';
-    ctx.fillStyle = '#84e36b';
-    ctx.fillText('A/D arrows = move · W/↑/Space = jump · S/↓ = pounce · X = shoot · P = pause · M / N = mute',
-                 VIEW_W / 2, 438);
+      ctx.fillStyle = selected ? 'rgba(132, 227, 107, 0.22)' : 'rgba(0, 0, 0, 0.35)';
+      ctx.fillRect(x, DCHIP_Y, DCHIP_W, DCHIP_H);
+
+      ctx.lineWidth = selected ? 3 : 1.5;
+      ctx.strokeStyle = selected ? '#84e36b' : 'rgba(255, 255, 255, 0.25)';
+      ctx.strokeRect(
+        x + ctx.lineWidth / 2,
+        DCHIP_Y + ctx.lineWidth / 2,
+        DCHIP_W - ctx.lineWidth,
+        DCHIP_H - ctx.lineWidth
+      );
+
+      ctx.font = 'bold 11px ui-monospace, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = selected ? '#84e36b' : '#dfe6f0';
+      ctx.fillText(cfg.label, x + DCHIP_W / 2, DCHIP_Y + 14);
+      ctx.font = '9px ui-monospace, monospace';
+      ctx.fillStyle = selected ? '#fff8e8' : '#9aa6bf';
+      ctx.fillText(cfg.blurb, x + DCHIP_W / 2, DCHIP_Y + 28);
+    }
+
+    // Bottom prompt — switches between "start fresh" and "resume" depending
+    // on whether there's a snapshot waiting from a previous session.
+    ctx.font = 'bold 14px ui-monospace, monospace';
+    ctx.textAlign = 'center';
+    if (pendingSnapshot) {
+      ctx.fillStyle = '#84e36b';
+      ctx.fillText('SPACE = RESUME PREVIOUS RUN  ·  R = FRESH START', VIEW_W / 2, 432);
+    } else {
+      ctx.fillStyle = '#fff';
+      ctx.fillText('Press SPACE / W / Up to start', VIEW_W / 2, 432);
+    }
+
+    ctx.font = '10px ui-monospace, monospace';
     ctx.fillStyle = '#7aa7c7';
-    ctx.fillText('1 / 2 / 3 = pick level · L = cycle level',
-                 VIEW_W / 2, 458);
+    ctx.fillText('1/2/3 pick level · L cycle level · E/H pick difficulty · C contrast · M music · N FX',
+                 VIEW_W / 2, 454);
 
     ctx.restore();
   }
@@ -2069,6 +2370,15 @@
     }
     return -1;
   }
+  // Hit-test a difficulty chip. Returns difficulty key (string) or null.
+  function hitTestDifficulty(x, y) {
+    if (y < DCHIP_Y || y > DCHIP_Y + DCHIP_H) return null;
+    for (let i = 0; i < DIFFICULTY_ORDER.length; i++) {
+      const sx = dchipX(i);
+      if (x >= sx && x <= sx + DCHIP_W) return DIFFICULTY_ORDER[i];
+    }
+    return null;
+  }
 
   canvas.addEventListener('click', (e) => {
     if (game.mode !== 'intro') return;
@@ -2083,6 +2393,12 @@
     if (lv >= 0 && levelUnlocked(lv)) {
       currentLevel = lv;
       persistCurrentLevel();
+      return;
+    }
+    const diff = hitTestDifficulty(x, y);
+    if (diff) {
+      difficulty = diff;
+      persistDifficulty();
     }
   });
 
@@ -2091,7 +2407,8 @@
     const { x, y } = eventToCanvas(e);
     if (hitTestSwatch(x, y)) { canvas.style.cursor = 'pointer'; return; }
     const lv = hitTestChip(x, y);
-    canvas.style.cursor = (lv >= 0 && levelUnlocked(lv)) ? 'pointer' : 'crosshair';
+    if (lv >= 0 && levelUnlocked(lv)) { canvas.style.cursor = 'pointer'; return; }
+    canvas.style.cursor = hitTestDifficulty(x, y) ? 'pointer' : 'crosshair';
   });
 
   function drawPaused() {
@@ -2281,12 +2598,71 @@
 
   // ------ main loop ----------------------------------------------------------
   let lastTime = 0;
+  // ------ gamepad polling ----------------------------------------------------
+  // Map standard-layout gamepad axes/buttons into the same `keys` map the
+  // keyboard + touch controls write to. Polled once per frame.
+  //
+  //   left stick X / D-pad  →  arrowleft / arrowright
+  //   left stick Y / D-pad  →  arrowdown   (for down-pounce)
+  //   button 0 (A / Cross)  →  ' '         (jump)
+  //   button 2 (X / Square) →  'x'         (shoot fishbone)
+  //   button 1 (B / Circle) →  'arrowdown' (alt pounce)
+  //   start (button 9)      →  'enter'     (restart / advance level)
+  //   select (button 8)     →  'p'         (pause)
+  //
+  // We track which keys the gamepad set last frame, and only ever clear
+  // those — that way a held keyboard key doesn't get accidentally cleared.
+  const GP_DEAD = 0.3;             // analog dead-zone
+  const gpHeld = Object.create(null);
+  function pollGamepad() {
+    const gps = (typeof navigator.getGamepads === 'function')
+      ? navigator.getGamepads() : [];
+    let gp = null;
+    for (const g of gps) { if (g) { gp = g; break; } }
+    if (!gp) {
+      // No gamepad connected — clear anything we'd previously set.
+      for (const k in gpHeld) { if (gpHeld[k]) { keys[k] = false; gpHeld[k] = false; } }
+      return;
+    }
+    Audio.resume();                // first gamepad input unlocks audio
+    const desired = Object.create(null);
+    const ax = gp.axes[0] || 0;
+    const ay = gp.axes[1] || 0;
+    const dpadL = !!(gp.buttons[14] && gp.buttons[14].pressed);
+    const dpadR = !!(gp.buttons[15] && gp.buttons[15].pressed);
+    const dpadU = !!(gp.buttons[12] && gp.buttons[12].pressed);
+    const dpadD = !!(gp.buttons[13] && gp.buttons[13].pressed);
+    if (ax < -GP_DEAD || dpadL) desired['arrowleft']  = true;
+    if (ax >  GP_DEAD || dpadR) desired['arrowright'] = true;
+    if (ay >  GP_DEAD || dpadD) desired['arrowdown']  = true;
+    if (ay < -GP_DEAD || dpadU) desired['arrowup']    = true;
+    if (gp.buttons[0] && gp.buttons[0].pressed) desired[' '] = true;       // A → jump
+    if (gp.buttons[2] && gp.buttons[2].pressed) desired['x'] = true;       // X → shoot
+    if (gp.buttons[1] && gp.buttons[1].pressed) desired['arrowdown'] = true; // B → pounce
+    if (gp.buttons[9] && gp.buttons[9].pressed) desired['enter'] = true;   // start
+    if (gp.buttons[8] && gp.buttons[8].pressed) desired['p']     = true;   // select
+
+    // Set new presses.
+    for (const k in desired) {
+      if (!gpHeld[k]) keys[k] = true;
+      gpHeld[k] = true;
+    }
+    // Clear keys the gamepad let go of.
+    for (const k in gpHeld) {
+      if (gpHeld[k] && !desired[k]) {
+        keys[k] = false;
+        gpHeld[k] = false;
+      }
+    }
+  }
+
   function frame(now) {
     if (!lastTime) lastTime = now;
     // Clamp dt to 50 ms so backgrounded tabs don't simulate huge time steps
     // (which would tunnel the player through tiles).
     const dt = Math.min(0.05, (now - lastTime) / 1000);
     lastTime = now;
+    pollGamepad();
     update(dt);
     render();
     requestAnimationFrame(frame);
