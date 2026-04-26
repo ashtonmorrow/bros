@@ -37,9 +37,12 @@ html, body {
 }
 
 body {
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   padding: 16px;
+  gap: 10px;
   background:
     radial-gradient(ellipse at 50% 0%, var(--bg-3) 0%, var(--bg-2) 60%, var(--bg-1) 100%);
   /* Don't paint anything if the canvas is bigger than the viewport — the
@@ -47,7 +50,14 @@ body {
   overflow-x: hidden;
 }
 
-/* ----- Frame: the rounded chrome that wraps the whole app ----- */
+/* ----- Frame: the rounded chrome that wraps the whole app -----
+   The width formula reserves vertical room for the bezel-title +
+   controls hint INSIDE the frame, plus the bottom .frame-controls element
+   that sits OUTSIDE it (≈210 px of total chrome). Both frames share the
+   same width via the --frame-width variable so they line up. */
+:root {
+  --frame-width: min(95vw, calc((100dvh - 210px) * 5 / 3 + 24px), 1612px);
+}
 .frame {
   position: relative;
   padding: 12px 12px 14px;
@@ -58,21 +68,38 @@ body {
     0 0 0 4px #000,
     0 24px 48px rgba(0,0,0,0.55),
     inset 0 0 32px rgba(0,0,0,0.55);
-
-  /* Width strategy. Picks whichever is smallest:
-       95vw                                — small horizontal gutter
-       calc((100dvh - 140px) * 5/3 + 24px) — leaves ~140px for chrome (bezel
-                                             title + controls + body padding)
-                                             so the frame never overflows
-                                             vertically; the +24 is the
-                                             frame's own internal padding
-       1612px                              — hard cap at ~2× internal canvas
-                                             (1600 + 24 padding) so pixel art
-                                             stays crisp and we get the
-                                             "symmetric padding when at max
-                                             size" feel you asked for.       */
-  width: min(95vw, calc((100dvh - 140px) * 5 / 3 + 24px), 1612px);
+  width: var(--frame-width);
   max-width: 100%;
+}
+
+/* ----- Bottom audio-controls frame ----- */
+.frame-controls {
+  /* Same chrome treatment as the main frame, but smaller and not full-height. */
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  /* Slightly softer shadow than the main frame so it reads as the smaller
+     of the two stacked elements. */
+  box-shadow:
+    0 0 0 2px var(--bezel),
+    0 0 0 4px #000,
+    0 12px 24px rgba(0,0,0,0.45),
+    inset 0 0 16px rgba(0,0,0,0.45);
+}
+.frame-controls .bezel-button {
+  font-size: 10px;
+  letter-spacing: 2px;
+  padding: 6px 10px;
+}
+.game-controls-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--ink-soft);
+  text-shadow: 0 0 6px rgba(122, 167, 199, 0.55);
+  margin-right: 6px;
 }
 
 /* ----- Top bezel: HOME / README on left, brand center, sister-projects right ----- */

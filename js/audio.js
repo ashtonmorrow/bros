@@ -11,6 +11,14 @@
 
   let ctx = null;
 
+  // Master GainNodes — one per audio category. SFX and music each route
+  // through their own gain node before reaching the destination, so the
+  // toggle handlers can drop the gain to 0 and cut sound *instantly*,
+  // even when notes that have already been scheduled (Web Audio's
+  // pre-scheduling buffer) would otherwise keep playing for a few seconds.
+  let sfxGain = null;
+  let musicGain = null;
+
   function getCtx() {
     if (ctx) return ctx;
     try {
@@ -23,9 +31,27 @@
     }
   }
 
-  // Play one short tone with optional pitch slide.
-  function tone({ freq, type = 'square', dur = 0.1, vol = 0.18, slide = 0 }) {
+  // Lazily create the per-category gain nodes once the AudioContext exists.
+  function ensureGains() {
     const c = getCtx();
+    if (!c) return null;
+    if (!sfxGain) {
+      sfxGain = c.createGain();
+      sfxGain.gain.value = 1;
+      sfxGain.connect(c.destination);
+    }
+    if (!musicGain) {
+      musicGain = c.createGain();
+      musicGain.gain.value = 1;
+      musicGain.connect(c.destination);
+    }
+    return c;
+  }
+
+  // Play one short tone with optional pitch slide. Routes through the SFX
+  // master gain so toggling FX off cuts already-scheduled tails instantly.
+  function tone({ freq, type = 'square', dur = 0.1, vol = 0.18, slide = 0 }) {
+    const c = ensureGains();
     if (!c) return;
     const osc = c.createOscillator();
     const gain = c.createGain();
@@ -39,7 +65,7 @@
     gain.gain.setValueAtTime(vol, t);
     gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     osc.connect(gain);
-    gain.connect(c.destination);
+    gain.connect(sfxGain);
     osc.start(t);
     osc.stop(t + dur + 0.02);
   }
@@ -65,7 +91,17 @@
 
     // Independent SFX mute. Music toggle lives in game.js because the music
     // state machine is more involved (start/stop, tempo, panic mode).
-    setSfxEnabled(on) { sfxOn = !!on; },
+    // Drops the sfxGain to 0 immediately so any tones that were already
+    // scheduled get silenced on the spot — and skips creating new ones via
+    // the SFX_KEYS gate down below.
+    setSfxEnabled(on) {
+      sfxOn = !!on;
+      const c = ensureGains();
+      if (c && sfxGain) {
+        sfxGain.gain.cancelScheduledValues(c.currentTime);
+        sfxGain.gain.setValueAtTime(sfxOn ? 1 : 0, c.currentTime);
+      }
+    },
     isSfxEnabled() { return sfxOn; },
 
     jump() {
@@ -165,8 +201,29 @@
     // Schedules one full cycle at a time and re-schedules just before the
     // current one ends. Cheap (~48 oscillators per 7-second loop) and gives
     // the level a "real game" pulse with no audio files.
-    musicStart() { _music.start(); },
-    musicStop()  { _music.stop();  },
+    // Reset the music gain to full and resume scheduling. Anything that's
+    // still in the schedule from a previous session will play through the
+    // same gain node, so the volume jumps back up immediately too.
+    musicStart() {
+      const c = ensureGains();
+      if (c && musicGain) {
+        musicGain.gain.cancelScheduledValues(c.currentTime);
+        musicGain.gain.setValueAtTime(1, c.currentTime);
+      }
+      _music.start();
+    },
+    // Drop the music gain to 0 right now so any pre-scheduled notes that
+    // would otherwise keep ringing for up to a 4-bar loop go silent on the
+    // spot, then stop the scheduler so no new notes get queued.
+    musicStop() {
+      const c = ensureGains();
+      if (c && musicGain) {
+        musicGain.gain.cancelScheduledValues(c.currentTime);
+        musicGain.gain.setValueAtTime(musicGain.gain.value, c.currentTime);
+        musicGain.gain.linearRampToValueAtTime(0, c.currentTime + 0.05);
+      }
+      _music.stop();
+    },
     /** Multiplier on the base tempo (1.0 default, 1.4 for the last-30-s panic). */
     musicTempo(mul) { _music.tempoMul = mul; },
   };
@@ -226,7 +283,7 @@
   ];
 
   function playSequence(seq, startTime, beatDur, type, vol) {
-    const c = getCtx();
+    const c = ensureGains();
     if (!c) return startTime;
     let t = startTime;
     for (const [note, beats] of seq) {
@@ -242,7 +299,7 @@
       gain.gain.linearRampToValueAtTime(vol * 0.85, t + dur * 0.6);
       gain.gain.exponentialRampToValueAtTime(0.0001, t + dur * 0.95);
       osc.connect(gain);
-      gain.connect(c.destination);
+      gain.connect(musicGain);
       osc.start(t);
       osc.stop(t + dur + 0.02);
       t += dur;

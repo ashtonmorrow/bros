@@ -89,7 +89,7 @@
   function syncMusicButton() {
     const btn = document.getElementById('music-toggle');
     if (!btn) return;
-    btn.textContent = musicEnabled ? '♪ ON' : '♪ OFF';
+    btn.textContent = musicEnabled ? '♪ MUSIC ON' : '♪ MUSIC OFF';
     btn.setAttribute('aria-pressed', musicEnabled ? 'true' : 'false');
   }
   function toggleMusic() {
@@ -125,7 +125,7 @@
   function syncSfxButton() {
     const btn = document.getElementById('sfx-toggle');
     if (!btn) return;
-    btn.textContent = sfxEnabled ? 'FX ON' : 'FX OFF';
+    btn.textContent = sfxEnabled ? '◎ FX ON' : '◎ FX OFF';
     btn.setAttribute('aria-pressed', sfxEnabled ? 'true' : 'false');
   }
   function toggleSfx() {
@@ -609,6 +609,11 @@
 
     const k = e.key.toLowerCase();
 
+    // Audio toggles short-circuit BEFORE any mode-specific routing so they
+    // work instantly in any mode, including the intro screen and game-over.
+    if (k === 'm') { toggleMusic(); return; }
+    if (k === 'n') { toggleSfx();   return; }
+
     // ---- intro screen: arrows cycle the cat picker, anything else starts ----
     if (game.mode === 'intro') {
       if (k === 'arrowleft' || k === 'a') {
@@ -636,10 +641,6 @@
       // Other keys (e.g. modifiers) — ignore on the title screen.
       return;
     }
-
-    // Music + SFX toggles work in any mode.
-    if (k === 'm') { toggleMusic(); return; }
-    if (k === 'n') { toggleSfx();   return; }
 
     if (game.mode === 'playing' && k === 'p') game.mode = 'paused';
     else if (game.mode === 'paused' && k === 'p') game.mode = 'playing';

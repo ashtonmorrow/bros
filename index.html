@@ -90,12 +90,6 @@
       </span>
       <span class="bezel-center">POUNCE <span class="dot">&#9632;</span> 2026</span>
       <span class="bezel-right">
-        <button id="music-toggle" class="bezel-link bezel-button"
-                type="button" aria-pressed="true"
-                title="Toggle music (M)">&#9834; ON</button>
-        <button id="sfx-toggle" class="bezel-link bezel-button"
-                type="button" aria-pressed="true"
-                title="Toggle sound effects (N)">FX ON</button>
         <a href="https://pear.mike-lee.me/" class="bezel-link"
            target="_blank" rel="noopener noreferrer">PEAR</a>
         <a href="https://ski.mike-lee.me/" class="bezel-link"
@@ -134,10 +128,20 @@
       <strong>Jump</strong> W, &uarr;, or Space &nbsp;&middot;&nbsp;
       <strong>Pounce</strong> S or &darr; (in air) &nbsp;&middot;&nbsp;
       <strong>Shoot</strong> X (when powered) &nbsp;&middot;&nbsp;
-      <strong>Pause</strong> P &nbsp;&middot;&nbsp;
-      <strong>Music</strong> M
+      <strong>Pause</strong> P
     </p>
   </main>
+
+  <!-- Audio controls live below the game frame — instant on/off. -->
+  <div class="frame frame-controls">
+    <span class="game-controls-label">AUDIO</span>
+    <button id="music-toggle" class="bezel-link bezel-button"
+            type="button" aria-pressed="true"
+            title="Toggle music (M)">&#9834; MUSIC ON</button>
+    <button id="sfx-toggle" class="bezel-link bezel-button"
+            type="button" aria-pressed="true"
+            title="Toggle sound effects (N)">&#9678; FX ON</button>
+  </div>
 
   <!-- Order matters: shared globals are defined top-down. -->
   <script src="js/sprites.js"></script>
