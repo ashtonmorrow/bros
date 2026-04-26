@@ -49,8 +49,8 @@
   const SPRITE_OFFSET_Y = PLAYER_SPRITE_H - PLAYER_H;         // 26 (paws to feet)
 
   // Which cat palette is selected. Persisted across sessions in localStorage.
-  // Defaults to 'tabby' (Whiskers, the original).
-  const CAT_STORAGE_KEY = 'whiskers_cat';
+  // Defaults to 'tabby'.
+  const CAT_STORAGE_KEY = 'pounce_cat';
   let selectedCat = 'tabby';
   try {
     const saved = localStorage.getItem(CAT_STORAGE_KEY);
@@ -420,6 +420,14 @@
     moveX(p, p.vx);
     moveY(p, p.vy);
 
+    // --- world boundaries ---
+    // Left edge: an invisible wall at x=0 so the cat can't leave the level
+    // backwards. The camera already clamps; this stops the player from
+    // walking off-screen behind the start.
+    if (p.x < 0) { p.x = 0; if (p.vx < 0) p.vx = 0; }
+    // Right edge: clamp to world width so the cat can't pass the goal.
+    if (p.x + p.w > WORLD_W) { p.x = WORLD_W - p.w; if (p.vx > 0) p.vx = 0; }
+
     // --- death by pit (fell off the bottom of the world) ---
     if (p.y > WORLD_H + 64) {
       pitDeath();
@@ -730,11 +738,11 @@
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
 
-    // lives — use small fish icons
+    // lives — small cat-head icons (one per remaining life)
     ctx.fillStyle = '#fff';
     ctx.fillText('LIVES', 12, 18);
     for (let i = 0; i < game.lives; i++) {
-      ctx.drawImage(Sprites.fish, 80 + i * 20, 11);
+      ctx.drawImage(Sprites.catHead, 80 + i * 18, 10);
     }
 
     ctx.fillText(
@@ -789,9 +797,9 @@
     ctx.textBaseline = 'middle';
     ctx.font = 'bold 32px ui-monospace, monospace';
     ctx.fillStyle = '#000';
-    ctx.fillText("WHISKERS' ADVENTURE", VIEW_W / 2 + 2, 56);
+    ctx.fillText("POUNCE", VIEW_W / 2 + 2, 56);
     ctx.fillStyle = '#ffd166';
-    ctx.fillText("WHISKERS' ADVENTURE", VIEW_W / 2, 54);
+    ctx.fillText("POUNCE", VIEW_W / 2, 54);
 
     ctx.font = '15px ui-monospace, monospace';
     ctx.fillStyle = '#dfe6f0';
@@ -931,7 +939,7 @@
         { text: 'LEVEL COMPLETE!',
           font: 'bold 40px ui-monospace, monospace',
           color: '#84e36b', shadow: true, gap: 50 },
-        { text: 'Whiskers found a cozy spot to nap.',
+        { text: 'The cat found a cozy spot to nap.',
           color: '#fff', gap: 40 },
         { text: `Treats     ${game.collected} / ${game.totalCollectibles}`,
           color: '#fff', gap: 28 },

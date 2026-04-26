@@ -1,4 +1,4 @@
-/* level.js — level data for Whiskers' Adventure.
+/* level.js — level data for Pounce.
  *
  * The level is laid out using a programmatic builder rather than a hand-typed
  * ASCII grid. The builder is a thin wrapper around a 2D char array; each

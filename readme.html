@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Building Pounce, a Browser Cat Platformer | Pounce README</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<meta name="description" content="A walkthrough of building Pounce, a free browser side-scrolling cat platformer. Covers the tile-based level architecture, the four-act kishōtenketsu pacing applied to the level, the vector cat sprites shared with the cat-ski project, and the free toolchain (vanilla HTML, GitHub, Vercel) used to ship it.">
+<meta name="keywords" content="pounce, browser game, javascript platformer, cat platformer, html5 canvas, kishotenketsu level design, web audio api, claude ai">
+<link rel="canonical" href="https://pounce.mike-lee.me/readme.html">
+
+<!-- Open Graph -->
+<meta property="og:type" content="article">
+<meta property="og:title" content="Building Pounce, a Browser Cat Platformer">
+<meta property="og:description" content="Walkthrough of building Pounce, a browser cat platformer, with kishōtenketsu level pacing, vector cat sprites shared with cat-ski, and a vanilla HTML / Canvas / Web Audio stack.">
+<meta property="og:image" content="https://pounce.mike-lee.me/preview.png">
+<meta property="og:url" content="https://pounce.mike-lee.me/readme.html">
+<meta property="og:site_name" content="pounce">
+<meta property="article:author" content="Mike Lee">
+<meta property="article:published_time" content="2026-04-26">
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Building Pounce, a Browser Cat Platformer">
+<meta name="twitter:description" content="Walkthrough of building a browser cat platformer with kishōtenketsu level pacing and a vanilla HTML stack.">
+<meta name="twitter:image" content="https://pounce.mike-lee.me/preview.png">
+
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<meta name="theme-color" content="#1a1a2e">
+
+<!-- Structured data: TechArticle -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Building Pounce, a Browser Cat Platformer",
+  "alternativeHeadline": "Applying kishōtenketsu pacing to a hand-built tile level",
+  "description": "A walkthrough of building Pounce, a free browser side-scrolling cat platformer. Covers tile-based level architecture, four-act level pacing, vector cat sprites shared with the cat-ski project, and the free toolchain (vanilla HTML, GitHub, Vercel) used to ship it.",
+  "image": "https://pounce.mike-lee.me/preview.png",
+  "datePublished": "2026-04-26",
+  "dateModified": "2026-04-26",
+  "inLanguage": "en",
+  "isAccessibleForFree": true,
+  "proficiencyLevel": "Beginner",
+  "about": [
+    { "@type": "Thing", "name": "Browser game development" },
+    { "@type": "Thing", "name": "2D platformer level design" },
+    { "@type": "Thing", "name": "Kishōtenketsu" },
+    { "@type": "Thing", "name": "HTML5 Canvas" },
+    { "@type": "Thing", "name": "Web Audio API" },
+    { "@type": "Thing", "name": "Claude AI" }
+  ],
+  "author": {
+    "@type": "Person",
+    "name": "Mike Lee",
+    "alternateName": "Whisker Leaks",
+    "url": "https://www.linkedin.com/in/mikelee89/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "Mike Lee",
+    "url": "https://mike-lee.me/"
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://pounce.mike-lee.me/readme.html"
+  },
+  "isPartOf": {
+    "@type": "CreativeWorkSeries",
+    "name": "Browser games built with Claude",
+    "url": "https://mike-lee.me/"
+  }
+}
+</script>
+
+<style>
+  :root {
+    --bg:        #1a1a2e;
+    --panel:    #2b2b3d;
+    --ink:       #f0e9e0;
+    --ink-dim:   #b0a89c;
+    --accent:    #ffd166;
+    --accent-2:  #84e36b;
+    --link:      #7cc8ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    line-height: 1.55;
+  }
+  body { padding: 32px 16px; }
+  main { max-width: 760px; margin: 0 auto; }
+
+  h1 {
+    font-size: 30px;
+    letter-spacing: 4px;
+    color: var(--accent);
+    text-shadow: 3px 3px 0 #c44d2c;
+    margin-bottom: 8px;
+  }
+  h1 .label { font-size: 14px; color: var(--ink-dim); margin-left: 12px; letter-spacing: 2px; }
+  h2 {
+    font-size: 18px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    margin-top: 36px;
+    margin-bottom: 12px;
+    border-top: 1px solid var(--panel);
+    padding-top: 28px;
+  }
+  h2:first-of-type { border-top: none; padding-top: 0; }
+
+  p, li { font-size: 14.5px; margin-bottom: 14px; }
+  a { color: var(--link); text-decoration: underline; text-underline-offset: 2px; }
+  a:hover { color: var(--accent); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0 18px;
+    font-size: 13.5px;
+  }
+  th, td { padding: 8px 10px; vertical-align: top; }
+  th {
+    text-align: left;
+    color: var(--accent-2);
+    border-bottom: 1px solid var(--panel);
+    letter-spacing: 1px;
+  }
+  td { border-bottom: 1px solid #20202d; }
+
+  code, pre { font-family: inherit; }
+  code { color: var(--accent-2); }
+  pre {
+    background: #11111c;
+    border: 1px solid var(--panel);
+    padding: 12px;
+    overflow-x: auto;
+    font-size: 13px;
+    margin-bottom: 14px;
+  }
+
+  .toc {
+    background: #11111c;
+    border: 1px solid var(--panel);
+    padding: 12px 18px;
+    margin: 24px 0 8px;
+    font-size: 13.5px;
+  }
+  .toc strong { color: var(--accent); letter-spacing: 1px; }
+  .toc a { display: inline-block; margin: 4px 14px 4px 0; }
+
+  footer {
+    margin-top: 60px;
+    padding-top: 24px;
+    border-top: 1px solid var(--panel);
+    font-size: 12px;
+    color: var(--ink-dim);
+  }
+  footer a { color: var(--ink-dim); }
+</style>
+</head>
+<body>
+<main>
+  <h1>POUNCE<span class="label">// README</span></h1>
+  <p style="color: var(--ink-dim); font-size: 13px; letter-spacing: 1px;">
+    Building a browser cat platformer with a hand-built tile level &middot;
+    <a href="/">play the game &rarr;</a>
+  </p>
+
+  <nav class="toc">
+    <strong>Contents</strong><br>
+    <a href="#about">About Pounce</a>
+    <a href="#play">How to play</a>
+    <a href="#build">How the game is built</a>
+    <a href="#level">Designing the level</a>
+    <a href="#cats">The four cats</a>
+    <a href="#claude">Working with Claude</a>
+    <a href="#diy">How you can build this yourself</a>
+  </nav>
+
+  <h2 id="about">About Pounce</h2>
+
+  <p>Pounce is a free browser side-scrolling platformer. The player picks one
+    of four cats and bounds through a hand-built tile level on the way to a
+    cozy bed. Stomp the bugs, collect treats and yarn balls, reach the goal.
+    The whole thing runs in vanilla HTML, CSS, and JavaScript on top of an
+    HTML5 Canvas, with sound effects synthesised at runtime from the Web Audio
+    API. There is no build step and no runtime dependency.</p>
+
+  <p>The project shares its DNA with
+    <a href="https://ski.mike-lee.me/">cat-ski</a>: same author, same plain-prose
+    voice, same free deploy toolchain (GitHub &rarr; Vercel), same four cat
+    palettes. Source is at
+    <a href="https://github.com/ashtonmorrow/bros">github.com/ashtonmorrow/bros</a>.
+    Pounce is a placeholder repository name from the early prototype days; the
+    public name of the game is Pounce, and the production URL is
+    <code>pounce.mike-lee.me</code>.</p>
+
+  <h2 id="play">How to play</h2>
+
+  <p>The cat starts on a flat patch of grass. Walking right takes you through a
+    240-tile level structured in four acts: a tutorial, a development section
+    with the first floating-platform challenges, a climax in the air across
+    disconnected platforms, and a final stretch that recovers the pace before
+    the goal staircase. The level ends at a cozy bed on a raised wooden plateau.</p>
+
+  <table>
+    <thead>
+      <tr><th>Input</th><th>Action</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>A / D or Left / Right</td><td>Move</td></tr>
+      <tr><td>W, Up Arrow, or Space</td><td>Jump</td></tr>
+      <tr><td>P</td><td>Pause</td></tr>
+      <tr><td>R or Enter</td><td>Restart after a game over or win</td></tr>
+      <tr><td>Left / Right (title screen)</td><td>Cycle the cat picker</td></tr>
+      <tr><td>Click a swatch (title screen)</td><td>Select that cat directly</td></tr>
+    </tbody>
+  </table>
+
+  <p>The score increases with collected treats (10 each) and yarn balls
+    (50 each), with a stomp bonus (100) for landing on top of an enemy and a
+    time bonus on the level-complete screen. A bug or dust bunny that catches
+    the cat from the side costs a life; pits cost a life and respawn the cat at
+    the start. The cat starts with three lives. Run out and the game ends.</p>
+
+  <h2 id="build">How the game is built</h2>
+
+  <p>The game is split across four small JavaScript files plus an
+    <code>index.html</code> entry point. There is no build step, no framework,
+    and no runtime dependency. The constraint of staying on a vanilla stack is
+    deliberate: it keeps the deploy pipeline as small as possible (a
+    <code>git push</code> triggers an automatic Vercel rebuild that takes
+    seconds), and it forces honest engineering decisions because no library is
+    going to paper over a bad choice.</p>
+
+  <table>
+    <thead>
+      <tr><th>Component</th><th>Implementation</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Rendering</td><td>HTML5 Canvas at 800 &times; 480, image-rendering: pixelated</td></tr>
+      <tr><td>Game loop</td><td>Vanilla JS, requestAnimationFrame, dt clamped to 50 ms</td></tr>
+      <tr><td>Physics</td><td>Per-axis tilemap collision; gravity 0.5 px / frame²</td></tr>
+      <tr><td>Variable jump</td><td>Reduced gravity (0.275) while ascending and jump is held</td></tr>
+      <tr><td>Forgiveness</td><td>0.10 s coyote time, 0.10 s jump buffer</td></tr>
+      <tr><td>World sprites</td><td>Procedural pixel art via <code>ctx.fillRect</code></td></tr>
+      <tr><td>Cat sprites</td><td>Vector primitives, four palettes shared with cat-ski</td></tr>
+      <tr><td>Audio</td><td>Web Audio API, all sounds synthesised at runtime</td></tr>
+      <tr><td>State persistence</td><td><code>localStorage</code> for the selected cat</td></tr>
+      <tr><td>Hosting</td><td>Vercel, deployed from GitHub on push</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="level">Designing the level</h2>
+
+  <p>The level is 240 tiles wide and 15 tiles tall. Each tile is 32 &times; 32
+    pixels in the world, so the playable area is 7680 &times; 480. The
+    horizontal camera scrolls to follow the cat and clamps at the world's left
+    and right edges so the player can't walk off-screen behind the start or
+    past the goal.</p>
+
+  <p>The level data is not a hand-typed ASCII grid. It is built programmatically
+    in <code>js/level.js</code> through a thin builder API
+    (<code>ground</code>, <code>plat</code>, <code>ent</code>) that writes
+    features into a 2D char array. The final grid is exported as an array of
+    240-character strings for <code>game.js</code> to consume. This makes the
+    level easier to reason about and to refactor when something needs to shift.</p>
+
+  <p>The structure follows the four-act kishōtenketsu framework popularised by
+    Koichi Hayashida at Nintendo (intro &rarr; development &rarr; twist
+    &rarr; conclusion), and each section is annotated with which of the
+    <a href="https://www.gamedeveloper.com/design/level-design-patterns-in-2d-games">six 2D platformer level design patterns</a>
+    it uses (Guidance, Foreshadowing, Safe Zone, Layering, Branching, Pace Breaking).</p>
+
+  <table>
+    <thead>
+      <tr><th>Act</th><th>Cols</th><th>What it teaches</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1. Introduction</td><td>0&ndash;49</td>
+        <td>Walking and trivial 3-tile jumps. A treat trail
+            (Guidance) and one slow enemy with an optional high path
+            (Branching) carrying a bonus yarn ball.</td></tr>
+      <tr><td>2. Development</td><td>50&ndash;123</td>
+        <td>Wider 4&ndash;5 tile pits, a three-layer platform showcase
+            (Layering), and a small mid-air stepping stone that previews
+            the bigger gaps in Act 3 (Foreshadowing). Ends with a clean
+            three-step staircase up.</td></tr>
+      <tr><td>3. Twist</td><td>124&ndash;184</td>
+        <td>Disconnected platforms with no ground below, three back-to-back
+            enemies on flat, the level's only 7-tile pit (with two stepping
+            platforms at different heights), and a vertical tower section.</td></tr>
+      <tr><td>4. Conclusion</td><td>185&ndash;239</td>
+        <td>An enemy-free recovery flat (Safe Zone &mdash; the calm before the
+            goal), one easy pit, one final bonus yarn, and a four-step goal
+            staircase ending at the cozy bed. The bed is visible from col 218
+            onward so the player always knows where they're going.</td></tr>
+    </tbody>
+  </table>
+
+  <p>The cat's running jump can clear about five tiles flat (or six with a
+    full variable-jump hold) and reach about five tiles vertically. Every pit
+    in the level was sized to stay inside those bounds, with mid-air stepping
+    platforms placed in any gap wider than five tiles. A static check verifies
+    every entity has a solid tile underneath and no platform sits directly
+    above another solid tile (a stacking trap that would have the cat clipping
+    into a tile while standing on the one below).</p>
+
+  <h2 id="cats">The four cats</h2>
+
+  <p>The player picks a cat on the title screen. Four palettes are available:
+    SHADOW (black), WHISKERS (tabby), PATCHES (calico), and GINGER (orange).
+    The drawing code is the same vector function used in
+    <a href="https://ski.mike-lee.me/">cat-ski</a>, parameterised by a palette
+    object. A single set of geometry produces all four cats.</p>
+
+  <table>
+    <thead>
+      <tr><th>Cat</th><th>Palette character</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>SHADOW (black)</td><td>Pure-black fur, gold eyes, no markings</td></tr>
+      <tr><td>WHISKERS (tabby)</td><td>Warm orange fur with mackerel stripes and a forehead M</td></tr>
+      <tr><td>PATCHES (calico)</td><td>White base with orange and black irregular patches; cool blue eyes</td></tr>
+      <tr><td>GINGER (orange)</td><td>Bright orange tabby with green eyes</td></tr>
+    </tbody>
+  </table>
+
+  <p>The cat is drawn front-facing rather than as a side-view sprite, so it
+    doesn't flip when you change direction. That is a deliberate trade-off:
+    the vector geometry doesn't survive a horizontal flip cleanly because
+    markings and patches mirror with it. A front-facing chibi cat reads
+    correctly to the player without the flip.</p>
+
+  <h2 id="claude">Working with Claude</h2>
+
+  <p>The project was built with Claude as a coding collaborator, in roughly the
+    same workflow used to build cat-ski: a long prompt at the start that lays
+    out the constraints (vanilla stack, no copyrighted assets, original art,
+    keep it small enough to swap in better art later), then iterating in short
+    cycles where each cycle adds one feature, runs a verification step
+    (<code>node --check</code> on every JS file plus a programmatic level
+    sanity check), and ships.</p>
+
+  <p>The character picker is a useful example. The first version of the cat
+    sprite was procedural pixel art drawn with <code>fillRect</code>. It read
+    as "small orange thing" but not unmistakably as a cat. Rather than redo
+    the pixel art, the fix was to share the existing vector
+    <code>drawCat</code> function from cat-ski. Claude pulled the function and
+    its four palettes from the cat-ski source, baked each
+    palette &times; state combination into a small canvas at startup, and wired
+    a swatch-and-arrow picker into the title screen. The change took one
+    iteration because the constraint &mdash; "the cat needs to look like a cat
+    at all four colours without forking the drawing code" &mdash; was the same
+    constraint cat-ski had already solved.</p>
+
+  <h2 id="diy">How you can build this yourself</h2>
+
+  <p>You don't need much. The toolchain Pounce uses is free or open source.</p>
+
+  <table>
+    <thead>
+      <tr><th>What for</th><th>Tool</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Editor</td><td>Any text editor &mdash; VS Code, Sublime, even TextEdit will work</td></tr>
+      <tr><td>Coding collaborator</td><td><a href="https://www.anthropic.com/">Claude</a></td></tr>
+      <tr><td>Version control</td><td><a href="https://github.com/">GitHub</a> (free for public repos)</td></tr>
+      <tr><td>Hosting</td><td><a href="https://vercel.com/">Vercel</a> (free tier; auto-deploys from GitHub)</td></tr>
+      <tr><td>Local preview</td><td><code>python3 -m http.server</code> or <code>npx serve</code></td></tr>
+      <tr><td>Browser dev tools</td><td>Built into Chrome / Safari / Firefox</td></tr>
+    </tbody>
+  </table>
+
+  <p>The single most useful constraint is to start without a framework. The
+    surface area of vanilla HTML / Canvas / Web Audio is small enough to learn
+    in an afternoon, and the resulting game is small enough that you can
+    deploy a change in under a minute and reload to see it. If a feature
+    starts asking for a framework, that's signal that the feature is too big
+    for this kind of project; pick a smaller version of it.</p>
+
+  <footer>
+    <p>Author: <a href="https://www.linkedin.com/in/mikelee89/">Mike Lee</a>
+       &middot; Source on <a href="https://github.com/ashtonmorrow/bros">GitHub</a>
+       &middot; Sister project: <a href="https://ski.mike-lee.me/">cat-ski</a>
+       &middot; <a href="/">Play Pounce</a>
+    </p>
+  </footer>
+</main>
+</body>
+</html>

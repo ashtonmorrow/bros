@@ -548,6 +548,45 @@
     return c;
   }
 
+  // Tiny cat-head icon for the HUD lives counter — 14×14 pixel art so it
+  // matches the rest of the HUD style instead of the vector body sprite.
+  function drawCatHead() {
+    const c = makeCanvas(14, 14);
+    const ctx = c.getContext('2d');
+    // ears
+    ctx.fillStyle = '#e89a3a';
+    ctx.fillRect(2, 2, 2, 3);
+    ctx.fillRect(10, 2, 2, 3);
+    ctx.fillRect(2, 1, 1, 1);
+    ctx.fillRect(11, 1, 1, 1);
+    // inner ears
+    ctx.fillStyle = '#e7708a';
+    ctx.fillRect(3, 3, 1, 1);
+    ctx.fillRect(10, 3, 1, 1);
+    // head
+    ctx.fillStyle = '#e89a3a';
+    ctx.fillRect(3, 4, 8, 7);
+    ctx.fillRect(2, 5, 1, 5);
+    ctx.fillRect(11, 5, 1, 5);
+    ctx.fillRect(4, 3, 6, 1);
+    ctx.fillRect(4, 11, 6, 1);
+    // muzzle
+    ctx.fillStyle = '#fff8e8';
+    ctx.fillRect(5, 8, 4, 3);
+    // eyes
+    ctx.fillStyle = '#16161d';
+    ctx.fillRect(5, 6, 1, 2);
+    ctx.fillRect(8, 6, 1, 2);
+    // eye glint
+    ctx.fillStyle = '#84e36b';
+    ctx.fillRect(5, 6, 1, 1);
+    ctx.fillRect(8, 6, 1, 1);
+    // nose
+    ctx.fillStyle = '#e7708a';
+    ctx.fillRect(6, 9, 2, 1);
+    return c;
+  }
+
   // ---------------------------------------------------------------------------
   //  Tiles — 32×32. Grass on top, dirt below, wooden floating platform.
   // ---------------------------------------------------------------------------
@@ -725,6 +764,7 @@
     dust: { walk0: drawDust(0), walk1: drawDust(1), squashed: drawDustSquashed() },
     yarn: drawYarn(),
     fish: drawFish(),
+    catHead: drawCatHead(),
     grass: drawGrass(),
     dirt: drawDirt(),
     platform: drawPlatform(),

@@ -1,0 +1,44 @@
+# Pounce
+
+> A free browser side-scrolling cat platformer. Pick from four cat palettes
+> and bound through a 240-tile hand-built level on the way to a cozy bed.
+> Stomp bugs, collect treats and yarn balls, reach the goal. Single
+> self-contained folder of vanilla HTML, CSS, and JavaScript with no build
+> step or install required.
+
+Pounce is an open-source browser game in the same family as
+[cat-ski](https://ski.mike-lee.me/) — same author, same vanilla stack, same
+plain-prose voice. Four selectable cat palettes (black, tabby, calico,
+orange) with vector cat sprites shared with cat-ski. Hand-built tile level
+structured around the four-act kishōtenketsu framework (intro → development
+→ twist → conclusion). Web Audio API synthesised sound effects, no audio
+files. HTML5 Canvas with image-rendering: pixelated for crisp pixel art.
+Hosted on Vercel, source on GitHub.
+
+## Pages
+
+- [Play Pounce](https://pounce.mike-lee.me/): The game itself. Loads in any
+  modern browser. Desktop only at this stage; mobile is on the roadmap.
+- [Building Pounce, a Browser Cat Platformer](https://pounce.mike-lee.me/readme.html):
+  A walkthrough article covering the tile-based level architecture, the
+  four-act kishōtenketsu pacing applied to the level, the vector cat sprites
+  shared with cat-ski, and the free toolchain used to ship it.
+
+## About the project
+
+- Author: Mike Lee (Whisker Leaks)
+- LinkedIn: https://www.linkedin.com/in/mikelee89/
+- Source code: https://github.com/ashtonmorrow/bros
+- Sister project: [cat-ski](https://github.com/ashtonmorrow/cat-ski) (same
+  author, four cat palettes shared between projects)
+- License: open source (see repository)
+- Stack: vanilla HTML, CSS, and JavaScript; HTML5 Canvas; Web Audio API; no
+  build step; no framework; no runtime dependencies
+- Hosting: Vercel, deployed automatically from the GitHub repository on push
+
+## Optional
+
+- [GitHub repository](https://github.com/ashtonmorrow/bros): Issues, forks,
+  and pull requests welcome.
+- [Mike Lee on LinkedIn](https://www.linkedin.com/in/mikelee89/): Project
+  author contact.

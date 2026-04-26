@@ -3,12 +3,72 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Whiskers' Adventure - A Cat Platformer</title>
+  <title>POUNCE // A Cat Platformer</title>
+
+  <meta name="description" content="A free browser side-scroller. Play as a cat — pick from four palettes — bounding through a hand-built tile level on the way to a cozy bed. Stomp bugs, collect treats and yarn balls, and reach the goal. Vanilla HTML / Canvas / Web Audio. No build step.">
+  <link rel="canonical" href="https://pounce.mike-lee.me/">
+  <meta name="theme-color" content="#1a1a2e">
+
+  <!-- Favicons (placeholders until art lands) -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+
+  <!-- Structured data: VideoGame -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "VideoGame",
+    "name": "Pounce",
+    "alternateName": "pounce",
+    "description": "A free browser side-scrolling platformer. Play as a cat trying to reach the cozy bed. Four selectable cat palettes, hand-built tile level, procedural pixel-art world, vector cat sprites, Web Audio synthesised SFX. Vanilla HTML / CSS / JavaScript, no build step.",
+    "url": "https://pounce.mike-lee.me/",
+    "image": "https://pounce.mike-lee.me/preview.png",
+    "inLanguage": "en",
+    "applicationCategory": "GameApplication",
+    "gamePlatform": ["Web Browser"],
+    "operatingSystem": "Any",
+    "genre": ["Platformer", "Retro", "Side-scroller"],
+    "isAccessibleForFree": true,
+    "playMode": "SinglePlayer",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "author": {
+      "@type": "Person",
+      "name": "Mike Lee",
+      "alternateName": "Whisker Leaks",
+      "url": "https://www.linkedin.com/in/mikelee89/"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "Mike Lee",
+      "url": "https://mike-lee.me/"
+    },
+    "datePublished": "2026-04-26",
+    "softwareVersion": "0.2"
+  }
+  </script>
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="POUNCE // A Cat Platformer">
+  <meta property="og:description" content="A free browser side-scroller. Play as a cat bounding through a hand-built tile level on the way to a cozy bed.">
+  <meta property="og:image" content="https://pounce.mike-lee.me/preview.png">
+  <meta property="og:url" content="https://pounce.mike-lee.me/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="pounce">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="POUNCE // A Cat Platformer">
+  <meta name="twitter:description" content="A free browser side-scroller. Play as a cat trying to reach the cozy bed.">
+  <meta name="twitter:image" content="https://pounce.mike-lee.me/preview.png">
+
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main class="game-wrap">
-    <h1 class="title">Whiskers' Adventure</h1>
+    <h1 class="title">POUNCE</h1>
     <canvas id="game" width="800" height="480"
             aria-label="Side-scrolling cat platformer"></canvas>
     <p class="controls">
@@ -16,7 +76,8 @@
       <strong>Jump</strong>: W, &uarr;, or Space &nbsp;|&nbsp;
       <strong>Pause</strong>: P
     </p>
-    <p class="hint">Press any key on the title screen to start.</p>
+    <p class="hint">Pick a cat on the title screen, then press SPACE to start.
+       <a href="readme.html">README &rarr;</a></p>
   </main>
 
   <!-- Order matters: shared globals are defined top-down. -->
