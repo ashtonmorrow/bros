@@ -1,70 +1,158 @@
-/* style.css — page chrome for the cat platformer.
-   The game itself draws into <canvas id="game"> via Canvas 2D. */
+/* style.css — page chrome for Pounce.
+   The game itself draws into <canvas id="game"> via Canvas 2D. Internal
+   resolution is locked at 800 × 480 (5 : 3 landscape); the canvas is then
+   scaled to the viewport via CSS while preserving aspect ratio. Inspired by
+   cat-ski's bezel pattern, adapted for landscape so the game fills as much
+   horizontal real-estate as the viewport allows. */
 
-* { box-sizing: border-box; }
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+
+:root {
+  --bg-1:    #050910;
+  --bg-2:    #0b1320;
+  --bg-3:    #1a2838;
+  --panel:   #111a27;
+  --panel-2: #0a111c;
+  --bezel:   #1d2a3c;
+  --ink:     #f0e9e0;
+  --ink-dim: #b0a89c;
+  --ink-soft:#7aa7c7;
+  --accent:  #ffd166;
+  --accent-2:#84e36b;
+  --accent-3:#ff6b8a;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
-  margin: 0;
-  padding: 0;
-  background: #1a1a2e;
-  color: #f0e9e0;
-  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  min-height: 100vh;
+  background: var(--bg-2);
+  color: var(--ink);
+  font-family: 'VT323', ui-monospace, Menlo, Consolas, monospace;
+  /* dvh = dynamic viewport height; resizes with the browser chrome on mobile */
+  min-height: 100dvh;
+  width: 100%;
 }
 
 body {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px 12px;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background:
+    radial-gradient(ellipse at 50% 0%, var(--bg-3) 0%, var(--bg-2) 60%, var(--bg-1) 100%);
+  /* Don't paint anything if the canvas is bigger than the viewport — the
+     overflow we want is on the inner .screen-wrap only. */
+  overflow-x: hidden;
 }
 
-.game-wrap {
-  text-align: center;
+/* ----- Frame: the rounded chrome that wraps the whole app ----- */
+.frame {
+  position: relative;
+  padding: 12px 12px 14px;
+  border-radius: 8px;
+  background: linear-gradient(var(--panel), var(--panel-2));
+  box-shadow:
+    0 0 0 2px var(--bezel),
+    0 0 0 4px #000,
+    0 24px 48px rgba(0,0,0,0.55),
+    inset 0 0 32px rgba(0,0,0,0.55);
+
+  /* Width strategy. Picks whichever is smallest:
+       95vw                                — small horizontal gutter
+       calc((100dvh - 140px) * 5/3 + 24px) — leaves ~140px for chrome (bezel
+                                             title + controls + body padding)
+                                             so the frame never overflows
+                                             vertically; the +24 is the
+                                             frame's own internal padding
+       1612px                              — hard cap at ~2× internal canvas
+                                             (1600 + 24 padding) so pixel art
+                                             stays crisp and we get the
+                                             "symmetric padding when at max
+                                             size" feel you asked for.       */
+  width: min(95vw, calc((100dvh - 140px) * 5 / 3 + 24px), 1612px);
   max-width: 100%;
 }
 
-.title {
-  margin: 0 0 14px;
-  letter-spacing: 4px;
-  font-size: 28px;
-  color: #ffd166;
-  text-shadow: 3px 3px 0 #c44d2c, 6px 6px 0 #2b2b3d;
+/* ----- Top bezel: HOME / README on left, brand center, sister-projects right ----- */
+.bezel-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--ink-soft);
+  margin-bottom: 10px;
+  padding: 0 4px;
+  text-shadow: 0 0 6px rgba(122, 167, 199, 0.55);
+}
+.bezel-center { flex: 1; text-align: center; color: var(--accent); }
+.bezel-left, .bezel-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.bezel-title .dot {
+  color: var(--accent);
+  animation: blink 1.2s steps(2, end) infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+.bezel-link {
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 4px 2px;
+  text-shadow: none;
+  transition: color 120ms;
+}
+.bezel-link:hover  { color: var(--accent-2); }
+.bezel-link:active { color: var(--accent); }
+
+/* ----- Screen wrap: holds the canvas at the right aspect ratio ----- */
+.screen-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 5 / 3;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #6ec5ff;
+  box-shadow:
+    inset 0 0 0 2px #000,
+    inset 0 0 24px rgba(0, 0, 0, 0.4);
 }
 
 canvas#game {
   display: block;
-  margin: 0 auto;
-  background: #6ec5ff;
-  border: 4px solid #2b2b3d;
-  border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-
-  /* Crisp scaling for the procedural pixel-art sprites */
+  width: 100%;
+  height: 100%;
+  /* Crisp scaling for pixel art when the CSS size > internal resolution. */
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
-
-  /* Width can shrink on small screens; keep aspect via max-width */
-  max-width: 100%;
-  height: auto;
   cursor: crosshair;
   outline: none;
+  background: #6ec5ff;
 }
 
+/* ----- Below-frame controls hint ----- */
 .controls {
-  margin: 14px 0 4px;
-  font-size: 14px;
-  opacity: 0.85;
+  margin-top: 10px;
+  padding: 0 4px;
+  font-size: 18px;
+  color: var(--ink-dim);
+  letter-spacing: 1px;
+  text-align: center;
 }
+.controls strong { color: var(--ink); }
+.controls a { color: var(--ink-soft); text-decoration: underline; text-underline-offset: 2px; }
+.controls a:hover { color: var(--accent-2); }
 
-.hint {
-  margin: 0;
-  font-size: 12px;
-  opacity: 0.55;
-}
-
-@media (max-width: 600px) {
-  .title { font-size: 22px; letter-spacing: 2px; }
-  .controls { font-size: 12px; }
+@media (max-width: 700px) {
+  body { padding: 8px; }
+  .frame { padding: 8px; border-radius: 6px; }
+  .bezel-title { font-size: 9px; letter-spacing: 1px; gap: 6px; }
+  .bezel-link  { font-size: 7px; }
+  .controls    { font-size: 14px; }
 }

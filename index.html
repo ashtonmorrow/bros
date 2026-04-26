@@ -67,17 +67,32 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="game-wrap">
-    <h1 class="title">POUNCE</h1>
-    <canvas id="game" width="800" height="480"
-            aria-label="Side-scrolling cat platformer"></canvas>
+  <main class="frame">
+    <div class="bezel-title">
+      <span class="bezel-left">
+        <a href="https://mike-lee.me/" class="bezel-link"
+           target="_blank" rel="noopener noreferrer">HOME</a>
+        <a href="readme.html" class="bezel-link">README</a>
+      </span>
+      <span class="bezel-center">POUNCE <span class="dot">&#9632;</span> 2026</span>
+      <span class="bezel-right">
+        <a href="https://github.com/ashtonmorrow/bros" class="bezel-link"
+           target="_blank" rel="noopener noreferrer">SOURCE</a>
+        <a href="https://ski.mike-lee.me/" class="bezel-link"
+           target="_blank" rel="noopener noreferrer">CAT-SKI</a>
+      </span>
+    </div>
+
+    <div class="screen-wrap">
+      <canvas id="game" width="800" height="480"
+              aria-label="Side-scrolling cat platformer"></canvas>
+    </div>
+
     <p class="controls">
-      <strong>Move</strong>: A / D or &larr; / &rarr; &nbsp;|&nbsp;
-      <strong>Jump</strong>: W, &uarr;, or Space &nbsp;|&nbsp;
-      <strong>Pause</strong>: P
+      <strong>Move</strong> A / D or &larr; / &rarr; &nbsp;&middot;&nbsp;
+      <strong>Jump</strong> W, &uarr;, or Space &nbsp;&middot;&nbsp;
+      <strong>Pause</strong> P
     </p>
-    <p class="hint">Pick a cat on the title screen, then press SPACE to start.
-       <a href="readme.html">README &rarr;</a></p>
   </main>
 
   <!-- Order matters: shared globals are defined top-down. -->
