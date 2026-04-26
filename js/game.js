@@ -667,8 +667,12 @@
   const musicBtn = document.getElementById('music-toggle');
   if (musicBtn) {
     musicBtn.addEventListener('click', () => {
-      toggleMusic();
       Audio.resume();              // first-click also unlocks the AudioContext
+      toggleMusic();
+      // Drop focus immediately. If the button kept focus, the browser would
+      // fire a synthetic `click` on it whenever the user presses Space (the
+      // game's jump key) — re-firing the toggle and making it feel "stuck".
+      try { musicBtn.blur(); } catch (e) {}
       canvas.focus();
     });
   }
@@ -677,8 +681,9 @@
   const sfxBtn = document.getElementById('sfx-toggle');
   if (sfxBtn) {
     sfxBtn.addEventListener('click', () => {
-      toggleSfx();
       Audio.resume();
+      toggleSfx();
+      try { sfxBtn.blur(); } catch (e) {}
       canvas.focus();
     });
   }

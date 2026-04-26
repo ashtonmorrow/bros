@@ -91,15 +91,18 @@
 
     // Independent SFX mute. Music toggle lives in game.js because the music
     // state machine is more involved (start/stop, tempo, panic mode).
-    // Drops the sfxGain to 0 immediately so any tones that were already
-    // scheduled get silenced on the spot — and skips creating new ones via
-    // the SFX_KEYS gate down below.
+    // Snaps the sfxGain to its target value with NO ramp — any tones that
+    // were already scheduled get silenced on the same audio frame — and
+    // skips creating new ones via the SFX_KEYS gate further down.
     setSfxEnabled(on) {
       sfxOn = !!on;
       const c = ensureGains();
       if (c && sfxGain) {
         sfxGain.gain.cancelScheduledValues(c.currentTime);
-        sfxGain.gain.setValueAtTime(sfxOn ? 1 : 0, c.currentTime);
+        // Direct assignment is equivalent to setValueAtTime(v, now) AND it
+        // updates AudioParam.value as observed by the next read — important
+        // when the gate below reads it.
+        sfxGain.gain.value = sfxOn ? 1 : 0;
       }
     },
     isSfxEnabled() { return sfxOn; },
@@ -201,26 +204,27 @@
     // Schedules one full cycle at a time and re-schedules just before the
     // current one ends. Cheap (~48 oscillators per 7-second loop) and gives
     // the level a "real game" pulse with no audio files.
-    // Reset the music gain to full and resume scheduling. Anything that's
-    // still in the schedule from a previous session will play through the
-    // same gain node, so the volume jumps back up immediately too.
+    // Reset the music gain to full and resume scheduling. Snap to 1 with
+    // no ramp; the AudioContext will pick it up on the next audio frame.
     musicStart() {
       const c = ensureGains();
       if (c && musicGain) {
         musicGain.gain.cancelScheduledValues(c.currentTime);
-        musicGain.gain.setValueAtTime(1, c.currentTime);
+        musicGain.gain.value = 1;
       }
       _music.start();
     },
-    // Drop the music gain to 0 right now so any pre-scheduled notes that
-    // would otherwise keep ringing for up to a 4-bar loop go silent on the
-    // spot, then stop the scheduler so no new notes get queued.
+    // Drop the music gain to 0 immediately so any pre-scheduled notes that
+    // would otherwise keep ringing for up to a 4-bar loop are silent on the
+    // same audio frame, then stop the scheduler so no new notes are queued.
+    // No fade — fades are unreliable because reading gain.value mid-ramp
+    // returns the most recently-SET value, not the interpolated one, so a
+    // ramp from-current-to-0 can produce a brief pop.
     musicStop() {
       const c = ensureGains();
       if (c && musicGain) {
         musicGain.gain.cancelScheduledValues(c.currentTime);
-        musicGain.gain.setValueAtTime(musicGain.gain.value, c.currentTime);
-        musicGain.gain.linearRampToValueAtTime(0, c.currentTime + 0.05);
+        musicGain.gain.value = 0;
       }
       _music.stop();
     },
