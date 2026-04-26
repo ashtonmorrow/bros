@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Privacy &mdash; Pounce</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="What Pounce stores in your browser, what gets sent to a server, and what doesn't.">
+<link rel="canonical" href="https://pounce.mike-lee.me/privacy.html">
+<meta name="theme-color" content="#1a1a2e">
+
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+
+<style>
+  :root {
+    --bg:        #1a1a2e;
+    --panel:    #2b2b3d;
+    --ink:       #f0e9e0;
+    --ink-dim:   #b0a89c;
+    --accent:    #ffd166;
+    --accent-2:  #84e36b;
+    --link:      #7cc8ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    line-height: 1.55;
+  }
+  body { padding: 32px 16px; }
+  main { max-width: 760px; margin: 0 auto; }
+
+  h1 {
+    font-size: 30px;
+    letter-spacing: 4px;
+    color: var(--accent);
+    text-shadow: 3px 3px 0 #c44d2c;
+    margin-bottom: 8px;
+  }
+  h1 .label { font-size: 14px; color: var(--ink-dim); margin-left: 12px; letter-spacing: 2px; }
+  h2 {
+    font-size: 18px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    margin-top: 36px;
+    margin-bottom: 12px;
+    border-top: 1px solid var(--panel);
+    padding-top: 28px;
+  }
+  h2:first-of-type { border-top: none; padding-top: 0; }
+
+  p, li { font-size: 14.5px; margin-bottom: 14px; }
+  a { color: var(--link); text-decoration: underline; text-underline-offset: 2px; }
+  a:hover { color: var(--accent); }
+  code {
+    background: #11111c;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: inherit;
+    color: var(--accent-2);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0 18px;
+    font-size: 13.5px;
+  }
+  th, td { padding: 8px 10px; vertical-align: top; }
+  th {
+    text-align: left;
+    color: var(--accent-2);
+    border-bottom: 1px solid var(--panel);
+    letter-spacing: 1px;
+  }
+  td { border-bottom: 1px solid #20202d; }
+
+  footer {
+    margin-top: 60px;
+    padding-top: 24px;
+    border-top: 1px solid var(--panel);
+    font-size: 12px;
+    color: var(--ink-dim);
+  }
+  footer a { color: var(--ink-dim); }
+</style>
+</head>
+<body>
+<main>
+  <h1>POUNCE<span class="label">// PRIVACY</span></h1>
+  <p style="color: var(--ink-dim); font-size: 13px; letter-spacing: 1px;">
+    What Pounce stores in your browser, what gets sent to a server, and
+    what doesn't &middot;
+    <a href="/">play the game &rarr;</a> &middot;
+    <a href="/readme.html">read me</a>
+  </p>
+
+  <h2>Short version</h2>
+
+  <p>Pounce is a browser game. It saves your settings and progress
+    locally on your device using <code>localStorage</code> (a more
+    modern alternative to cookies, but functionally similar). The only
+    time anything leaves your browser is when you submit a high score
+    to the global leaderboard — and even then it's just a name and a
+    number. The site doesn't use tracking cookies, third-party
+    analytics, or advertising.</p>
+
+  <h2>What is stored locally on your device</h2>
+
+  <p>Each setting and bit of progress is stored under a named key in
+    your browser's <code>localStorage</code>. Nothing here is shared
+    with a server unless explicitly noted in the next section. If you
+    clear your browser's site data, all of these are deleted.</p>
+
+  <table>
+    <thead>
+      <tr><th>Key</th><th>What it holds</th><th>Why</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>pounce_cat</code></td>
+          <td>Which of the four cats you picked (black, tabby, calico, orange)</td>
+          <td>So your choice persists between sessions</td></tr>
+      <tr><td><code>pounce_music</code></td>
+          <td>Music on / off (a single character: <code>1</code> or <code>0</code>)</td>
+          <td>Remember your audio preference</td></tr>
+      <tr><td><code>pounce_sfx</code></td>
+          <td>Sound effects on / off</td>
+          <td>Same — remember your audio preference</td></tr>
+      <tr><td><code>pounce_music_vol</code></td>
+          <td>Music volume (a number between 0 and 1)</td>
+          <td>Remember the slider position</td></tr>
+      <tr><td><code>pounce_sfx_vol</code></td>
+          <td>Sound-effects volume</td>
+          <td>Same — slider position</td></tr>
+      <tr><td><code>pounce_level</code></td>
+          <td>The level you last played</td>
+          <td>So returning visits resume on the right level</td></tr>
+      <tr><td><code>pounce_progress</code></td>
+          <td>Which levels you've unlocked + your best score per level</td>
+          <td>So you can continue past the first level on a return visit</td></tr>
+      <tr><td><code>pounce_leaderboard_v1</code></td>
+          <td>A cached copy of the global top-3 scores</td>
+          <td>So the leaderboard strip paints instantly without waiting for the network</td></tr>
+      <tr><td><code>pounce_lb_last_name</code></td>
+          <td>The last 5-character name you typed when submitting a high score</td>
+          <td>So repeat submissions are one tap shorter</td></tr>
+    </tbody>
+  </table>
+
+  <p>That's the complete list. There are no tracking cookies, no
+    fingerprinting cookies, no third-party cookies, and no
+    third-party JavaScript that reads your storage.</p>
+
+  <h2>What's sent to a server</h2>
+
+  <p>Two things, both via <a href="https://supabase.com/">Supabase</a>
+    over HTTPS, and only at specific moments:</p>
+
+  <ul style="padding-left: 20px;">
+    <li><strong>Top-3 leaderboard fetch.</strong> When the page loads,
+      and again right after a successful score submit, the game asks
+      Supabase for the current top-three names + scores. No
+      identifying information is sent in the request beyond the
+      anonymous Supabase publishable key, which is meant to be
+      public.</li>
+    <li><strong>Score submit.</strong> If your final score qualifies
+      for the top three and you choose to enter a name, two values
+      are sent: the 5-character name you typed, and your numeric
+      score. Nothing else — no IP capture by the application, no
+      browser fingerprint, no email.</li>
+  </ul>
+
+  <p>You can decline the score submit by simply not typing a name and
+    closing the prompt. Your score still saves locally; it just doesn't
+    appear on the global board.</p>
+
+  <h2>What's <em>not</em> stored or collected</h2>
+
+  <ul style="padding-left: 20px;">
+    <li>No login, account, or email is required to play.</li>
+    <li>No analytics tracker is loaded.</li>
+    <li>No advertising network is loaded.</li>
+    <li>No social-media tracking pixels are loaded.</li>
+    <li>The game does not read or write any other browser data
+      (cookies, IndexedDB, etc.) — only the
+      <code>localStorage</code> keys listed above.</li>
+    <li>The game has no access to your device's location, camera,
+      microphone, contacts, or files.</li>
+  </ul>
+
+  <h2>How to delete your data</h2>
+
+  <p>To wipe Pounce's stored data:</p>
+
+  <ul style="padding-left: 20px;">
+    <li><strong>Easy:</strong> in your browser, clear site data for
+      <code>pounce.mike-lee.me</code>. In Chrome that's <em>Settings
+      &rarr; Privacy &rarr; Cookies and other site data &rarr; See all
+      site data</em> &rarr; search for <code>pounce</code> &rarr;
+      delete.</li>
+    <li><strong>Per-key:</strong> open DevTools &rarr; Application
+      &rarr; Local Storage and remove the keys above individually.</li>
+    <li><strong>Global leaderboard entry:</strong> if you submitted a
+      score and want it removed from the global board, email the
+      address below with the name you used and the rough date — I'll
+      delete it manually.</li>
+  </ul>
+
+  <h2>Children</h2>
+
+  <p>Pounce is suitable for all ages. It does not collect personal
+    information, so there is nothing to delete or share specific to
+    children under 13. The score-submit prompt accepts a 5-character
+    name, which we recommend not be the player's full real name.</p>
+
+  <h2>Contact</h2>
+
+  <p>This site is run by <a href="https://www.linkedin.com/in/mikelee89/">Mike Lee</a>.
+    For privacy questions, leaderboard removals, or anything else,
+    contact me through that LinkedIn page or via
+    <a href="https://mike-lee.me/">mike-lee.me</a>.</p>
+
+  <h2>Changes</h2>
+
+  <p>If this policy changes — for example if I add an analytics
+    library, or any new <code>localStorage</code> key — the change
+    will be visible in the page's <a href="https://github.com/ashtonmorrow/bros">git
+    history</a>, and a note will be added near the top of this page
+    summarising what changed and when.</p>
+
+  <p style="color: var(--ink-dim); font-size: 12px; margin-top: 32px;">
+    Last updated: 2026-04-26
+  </p>
+
+  <footer>
+    <p>Author: <a href="https://www.linkedin.com/in/mikelee89/">Mike Lee</a>
+       &middot; Source on <a href="https://github.com/ashtonmorrow/bros">GitHub</a>
+       &middot; <a href="/">Play Pounce</a>
+       &middot; <a href="/readme.html">README</a>
+    </p>
+    <p>Sister projects:
+       <a href="https://ski.mike-lee.me/">cat-ski</a> &middot;
+       <a href="https://pear.mike-lee.me/">pear</a> &middot;
+       <a href="https://go.mike-lee.me/">go</a> &middot;
+       <a href="https://mike-lee.me/">mike-lee.me</a>
+    </p>
+  </footer>
+</main>
+</body>
+</html>

@@ -361,14 +361,54 @@
   canvas.tabIndex = 0;
   canvas.addEventListener('mousedown', () => canvas.focus());
 
-  const W = window.LEVEL_WIDTH;
-  const H = window.LEVEL_HEIGHT;
-  const WORLD_W = W * TILE;
+  // Level dimensions are now per-level. H is constant (always 15) but W
+  // varies — level 1 is much wider than levels 2 and 3. World dimensions
+  // get recomputed inside loadLevel() each time we switch levels.
+  let W = 240;
+  const H = window.LEVEL_HEIGHT || 15;
+  let WORLD_W = W * TILE;
   const WORLD_H = H * TILE;
 
   // Mutable level grid (array of arrays of single chars). Built fresh in
   // loadLevel() so restart works.
   let tiles = null;
+
+  // Multi-level state: which level is currently being played, plus a
+  // persisted progress object tracking the highest unlocked level and the
+  // best score earned per level.
+  const LEVEL_STORAGE_KEY    = 'pounce_level';
+  const PROGRESS_STORAGE_KEY = 'pounce_progress';
+  const LEVEL_COUNT = (window.LEVELS && window.LEVELS.length) || 1;
+  let currentLevel = 0;
+  try {
+    const saved = parseInt(localStorage.getItem(LEVEL_STORAGE_KEY), 10);
+    if (!isNaN(saved) && saved >= 0 && saved < LEVEL_COUNT) currentLevel = saved;
+  } catch (e) {}
+  function persistCurrentLevel() {
+    try { localStorage.setItem(LEVEL_STORAGE_KEY, String(currentLevel)); } catch (e) {}
+  }
+  let progress = { unlocked: 1, bestScores: new Array(LEVEL_COUNT).fill(0) };
+  try {
+    const raw = localStorage.getItem(PROGRESS_STORAGE_KEY);
+    if (raw) {
+      const obj = JSON.parse(raw);
+      if (obj && typeof obj === 'object') {
+        if (typeof obj.unlocked === 'number' && obj.unlocked >= 1 && obj.unlocked <= LEVEL_COUNT) {
+          progress.unlocked = obj.unlocked;
+        }
+        if (Array.isArray(obj.bestScores)) {
+          for (let i = 0; i < LEVEL_COUNT; i++) {
+            if (typeof obj.bestScores[i] === 'number') progress.bestScores[i] = obj.bestScores[i];
+          }
+        }
+      }
+    }
+  } catch (e) {}
+  function persistProgress() {
+    try { localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(progress)); } catch (e) {}
+  }
+  // If the saved currentLevel is locked (e.g., progress was wiped), reset to 0.
+  if (currentLevel >= progress.unlocked) currentLevel = 0;
 
   const game = {
     mode: 'intro',          // intro | playing | paused | dying | dead | win
@@ -515,7 +555,17 @@
 
   // ------ level loading ------------------------------------------------------
   function loadLevel() {
-    tiles = window.LEVEL.map((row) => row.split(''));
+    // Pick the right level data based on currentLevel and update the world
+    // dimensions accordingly. Camera-clamping uses the live W / WORLD_W so
+    // a wider level scrolls farther.
+    const ld = (window.LEVELS && window.LEVELS[currentLevel]) || {
+      grid: window.LEVEL,
+      width: window.LEVEL_WIDTH,
+      height: window.LEVEL_HEIGHT,
+    };
+    W = ld.width;
+    WORLD_W = W * TILE;
+    tiles = ld.grid.map((row) => row.split(''));
 
     game.enemies = [];
     game.items = [];
@@ -666,13 +716,31 @@
         persistCat();
         return;
       }
-      // Any "start" key launches the run.
+      // Number keys 1/2/3 jump straight to that level if it's unlocked.
+      if (k >= '1' && k <= '9') {
+        const idx = parseInt(k, 10) - 1;
+        if (idx < LEVEL_COUNT && levelUnlocked(idx)) {
+          currentLevel = idx;
+          persistCurrentLevel();
+        }
+        return;
+      }
+      // L cycles forward through unlocked levels.
+      if (k === 'l') {
+        for (let step = 1; step <= LEVEL_COUNT; step++) {
+          const next = (currentLevel + step) % LEVEL_COUNT;
+          if (levelUnlocked(next)) { currentLevel = next; persistCurrentLevel(); break; }
+        }
+        return;
+      }
+      // Any "start" key launches the run on the currently-selected level.
+      // restart() reloads the level (picking up any level swap from the
+      // 1/2/3/L keys above) and resets all per-run state.
       if (
         k === ' ' || k === 'enter' || k === 'w' || k === 'arrowup' ||
         k === 's' || k === 'arrowdown'
       ) {
-        game.mode = 'playing';
-        tryStartMusic();
+        restart();
         return;
       }
       // Other keys (e.g. modifiers) — ignore on the title screen.
@@ -686,6 +754,13 @@
       (k === 'enter' || k === 'r' || k === ' ') &&
       !lbEntryActive          // don't restart while the player is typing a name
     ) {
+      // After a win on a non-final level, the same key advances to the next
+      // level. After a win on the final level, or on death, it restarts the
+      // current level.
+      if (game.mode === 'win' && currentLevel < LEVEL_COUNT - 1) {
+        currentLevel += 1;
+        persistCurrentLevel();
+      }
       restart();
     }
   });
@@ -1481,7 +1556,21 @@
       game.score += game.timer * 5;
       Audio.win();
       Audio.musicStop();
-      if (qualifiesForLeaderboard(game.score)) {
+
+      // Persist progress: best-score-on-this-level, unlock-next-level.
+      if (game.score > (progress.bestScores[currentLevel] || 0)) {
+        progress.bestScores[currentLevel] = game.score;
+      }
+      const nextLevel = currentLevel + 1;
+      if (nextLevel < LEVEL_COUNT && progress.unlocked < nextLevel + 1) {
+        progress.unlocked = nextLevel + 1;
+      }
+      persistProgress();
+
+      // True trilogy completion: only show the leaderboard prompt on the
+      // FINAL level. Earlier levels just hand off to "level complete →
+      // press Space for next".
+      if (currentLevel === LEVEL_COUNT - 1 && qualifiesForLeaderboard(game.score)) {
         setTimeout(showLbEntry, 800);
       }
     }
@@ -1796,15 +1885,32 @@
 
   // ---- Cat picker geometry (intro screen) ----
   // Four swatches drawn in a row, centred horizontally.
-  const SWATCH_W = 100;
-  const SWATCH_H = 100;
-  const SWATCH_GAP = 18;
-  const SWATCH_Y = 240;
+  const SWATCH_W = 90;
+  const SWATCH_H = 90;
+  const SWATCH_GAP = 14;
+  const SWATCH_Y = 200;
   function swatchX(i) {
     const total = Sprites.catNames.length * SWATCH_W +
                   (Sprites.catNames.length - 1) * SWATCH_GAP;
     const startX = (VIEW_W - total) / 2;
     return startX + i * (SWATCH_W + SWATCH_GAP);
+  }
+
+  // ---- Level chips geometry (intro screen) ----
+  const CHIP_W = 132;
+  const CHIP_H = 56;
+  const CHIP_GAP = 14;
+  const CHIP_Y = 320;
+  function chipX(i) {
+    const total = LEVEL_COUNT * CHIP_W + (LEVEL_COUNT - 1) * CHIP_GAP;
+    const startX = (VIEW_W - total) / 2;
+    return startX + i * (CHIP_W + CHIP_GAP);
+  }
+  function levelLabel(i) {
+    return (window.LEVELS && window.LEVELS[i] && window.LEVELS[i].label) || ('LEVEL ' + (i + 1));
+  }
+  function levelUnlocked(i) {
+    return i < progress.unlocked;
   }
 
   function drawIntro() {
@@ -1815,37 +1921,34 @@
     ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = 'bold 32px ui-monospace, monospace';
+    ctx.font = 'bold 28px ui-monospace, monospace';
     ctx.fillStyle = '#000';
-    ctx.fillText("POUNCE", VIEW_W / 2 + 2, 56);
+    ctx.fillText("POUNCE", VIEW_W / 2 + 2, 42);
     ctx.fillStyle = '#ffd166';
-    ctx.fillText("POUNCE", VIEW_W / 2, 54);
+    ctx.fillText("POUNCE", VIEW_W / 2, 40);
 
-    ctx.font = '15px ui-monospace, monospace';
+    ctx.font = '13px ui-monospace, monospace';
     ctx.fillStyle = '#dfe6f0';
-    ctx.fillText('Help your cat reach the cozy bed.', VIEW_W / 2, 92);
-    ctx.fillText('Pounce bugs, dodge dust bunnies, collect treats.', VIEW_W / 2, 114);
+    ctx.fillText('Help your cat reach the cozy bed across three levels.', VIEW_W / 2, 70);
 
     // "Pick your cat" prompt
-    ctx.font = 'bold 16px ui-monospace, monospace';
+    ctx.font = 'bold 14px ui-monospace, monospace';
     ctx.fillStyle = '#84e36b';
-    ctx.fillText('PICK YOUR CAT', VIEW_W / 2, 168);
-    ctx.font = '12px ui-monospace, monospace';
+    ctx.fillText('PICK YOUR CAT', VIEW_W / 2, 130);
+    ctx.font = '11px ui-monospace, monospace';
     ctx.fillStyle = '#9aa6bf';
-    ctx.fillText('← / → to choose · click to select · SPACE to start', VIEW_W / 2, 192);
+    ctx.fillText('← / → to choose · click to select', VIEW_W / 2, 150);
 
-    // Swatches
+    // Cat swatches
     for (let i = 0; i < Sprites.catNames.length; i++) {
       const name = Sprites.catNames[i];
       const palette = Sprites.catPalettes[name];
       const x = swatchX(i);
       const selected = name === selectedCat;
 
-      // background
       ctx.fillStyle = selected ? 'rgba(255, 209, 102, 0.18)' : 'rgba(0, 0, 0, 0.35)';
       ctx.fillRect(x, SWATCH_Y, SWATCH_W, SWATCH_H);
 
-      // border
       ctx.lineWidth = selected ? 3 : 1.5;
       ctx.strokeStyle = selected ? '#ffd166' : 'rgba(255, 255, 255, 0.25)';
       ctx.strokeRect(
@@ -1855,32 +1958,87 @@
         SWATCH_H - ctx.lineWidth
       );
 
-      // cat preview, drawn live so it animates with the lean if we want later
       Sprites.drawCat(
         ctx,
         x + SWATCH_W / 2,
-        SWATCH_Y + SWATCH_H / 2 + 14,
-        3.0,
+        SWATCH_Y + SWATCH_H / 2 + 12,
+        2.7,
         palette,
         { pose: 'front' }
       );
 
-      // name label
-      ctx.font = 'bold 12px ui-monospace, monospace';
+      ctx.font = 'bold 11px ui-monospace, monospace';
       ctx.fillStyle = selected ? '#ffd166' : '#dfe6f0';
       ctx.textAlign = 'center';
       ctx.fillText(Sprites.catLabels[name], x + SWATCH_W / 2, SWATCH_Y + SWATCH_H - 8);
     }
 
-    // Bottom prompt
-    ctx.font = 'bold 18px ui-monospace, monospace';
-    ctx.fillStyle = '#fff';
-    ctx.fillText('Press SPACE / W / Up to start', VIEW_W / 2, 384);
-
-    ctx.font = '12px ui-monospace, monospace';
+    // ----- Level chips -----
+    ctx.font = 'bold 14px ui-monospace, monospace';
     ctx.fillStyle = '#84e36b';
-    ctx.fillText('A/D or arrows to move · W/↑/Space to jump · S/↓ to down-pounce · X to shoot · P pause · M music · N FX',
-                 VIEW_W / 2, 432);
+    ctx.fillText('PICK A LEVEL', VIEW_W / 2, CHIP_Y - 22);
+
+    for (let i = 0; i < LEVEL_COUNT; i++) {
+      const x = chipX(i);
+      const unlocked = levelUnlocked(i);
+      const selected = i === currentLevel;
+      const best = (progress.bestScores && progress.bestScores[i]) || 0;
+
+      // background
+      ctx.fillStyle = !unlocked
+        ? 'rgba(0, 0, 0, 0.5)'
+        : (selected ? 'rgba(255, 209, 102, 0.22)' : 'rgba(0, 0, 0, 0.35)');
+      ctx.fillRect(x, CHIP_Y, CHIP_W, CHIP_H);
+
+      // border
+      ctx.lineWidth = selected ? 3 : 1.5;
+      ctx.strokeStyle = !unlocked
+        ? 'rgba(120, 120, 130, 0.35)'
+        : (selected ? '#ffd166' : 'rgba(255, 255, 255, 0.25)');
+      ctx.strokeRect(
+        x + ctx.lineWidth / 2,
+        CHIP_Y + ctx.lineWidth / 2,
+        CHIP_W - ctx.lineWidth,
+        CHIP_H - ctx.lineWidth
+      );
+
+      // label
+      ctx.font = 'bold 11px ui-monospace, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = !unlocked ? '#6a6573' : (selected ? '#ffd166' : '#dfe6f0');
+      ctx.fillText('LEVEL ' + (i + 1), x + CHIP_W / 2, CHIP_Y + 14);
+      ctx.font = '10px ui-monospace, monospace';
+      ctx.fillStyle = !unlocked ? '#6a6573' : (selected ? '#fff8e8' : '#9aa6bf');
+      ctx.fillText(levelLabel(i), x + CHIP_W / 2, CHIP_Y + 30);
+
+      // best score (if any) or lock icon
+      ctx.font = '10px ui-monospace, monospace';
+      if (!unlocked) {
+        ctx.fillStyle = '#6a6573';
+        ctx.fillText('LOCKED', x + CHIP_W / 2, CHIP_Y + 46);
+      } else if (best > 0) {
+        ctx.fillStyle = '#84e36b';
+        ctx.fillText('BEST  ' + best, x + CHIP_W / 2, CHIP_Y + 46);
+      } else {
+        ctx.fillStyle = '#9aa6bf';
+        ctx.fillText('NOT YET PLAYED', x + CHIP_W / 2, CHIP_Y + 46);
+      }
+    }
+
+    // Bottom prompt
+    ctx.font = 'bold 16px ui-monospace, monospace';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.fillText('Press SPACE / W / Up to start', VIEW_W / 2, 410);
+
+    ctx.font = '11px ui-monospace, monospace';
+    ctx.fillStyle = '#84e36b';
+    ctx.fillText('A/D arrows = move · W/↑/Space = jump · S/↓ = pounce · X = shoot · P = pause · M / N = mute',
+                 VIEW_W / 2, 438);
+    ctx.fillStyle = '#7aa7c7';
+    ctx.fillText('1 / 2 / 3 = pick level · L = cycle level',
+                 VIEW_W / 2, 458);
+
     ctx.restore();
   }
 
@@ -1902,6 +2060,15 @@
     }
     return null;
   }
+  // Hit-test a level chip on the intro screen. Returns 0..LEVEL_COUNT-1 or -1.
+  function hitTestChip(x, y) {
+    if (y < CHIP_Y || y > CHIP_Y + CHIP_H) return -1;
+    for (let i = 0; i < LEVEL_COUNT; i++) {
+      const sx = chipX(i);
+      if (x >= sx && x <= sx + CHIP_W) return i;
+    }
+    return -1;
+  }
 
   canvas.addEventListener('click', (e) => {
     if (game.mode !== 'intro') return;
@@ -1910,13 +2077,21 @@
     if (name) {
       selectedCat = name;
       persistCat();
+      return;
+    }
+    const lv = hitTestChip(x, y);
+    if (lv >= 0 && levelUnlocked(lv)) {
+      currentLevel = lv;
+      persistCurrentLevel();
     }
   });
 
   canvas.addEventListener('mousemove', (e) => {
     if (game.mode !== 'intro') { canvas.style.cursor = 'crosshair'; return; }
     const { x, y } = eventToCanvas(e);
-    canvas.style.cursor = hitTestSwatch(x, y) ? 'pointer' : 'crosshair';
+    if (hitTestSwatch(x, y)) { canvas.style.cursor = 'pointer'; return; }
+    const lv = hitTestChip(x, y);
+    canvas.style.cursor = (lv >= 0 && levelUnlocked(lv)) ? 'pointer' : 'crosshair';
   });
 
   function drawPaused() {
@@ -2000,23 +2175,32 @@
   function drawWin() {
     ctx.fillStyle = 'rgba(15, 40, 60, 0.85)';
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+    const isFinal = currentLevel === LEVEL_COUNT - 1;
+    const titleText = isFinal ? 'TRILOGY COMPLETE!' : 'LEVEL COMPLETE!';
+    const flavor = isFinal
+      ? 'The cat made it home. Time to nap forever.'
+      : `Cleared ${(window.LEVELS && window.LEVELS[currentLevel] && window.LEVELS[currentLevel].label) || 'this level'}!`;
+    const action = isFinal
+      ? 'Press R or ENTER to play again'
+      : 'Press SPACE / ENTER for the next level';
+
     drawCenteredText(
       [
-        { text: 'LEVEL COMPLETE!',
-          font: 'bold 40px ui-monospace, monospace',
-          color: '#84e36b', shadow: true, gap: 50 },
-        { text: 'The cat found a cozy spot to nap.',
-          color: '#fff', gap: 40 },
+        { text: titleText,
+          font: 'bold 36px ui-monospace, monospace',
+          color: '#84e36b', shadow: true, gap: 46 },
+        { text: flavor, color: '#fff', gap: 36 },
         { text: `Treats     ${game.collected} / ${game.totalCollectibles}`,
-          color: '#fff', gap: 28 },
-        { text: `Time bonus  ${game.timer * 5}`, color: '#fff', gap: 28 },
-        { text: `Final score ${game.score}`,
+          color: '#fff', gap: 26 },
+        { text: `Time bonus  ${game.timer * 5}`, color: '#fff', gap: 26 },
+        { text: `Score      ${game.score}`,
           font: 'bold 20px ui-monospace, monospace',
-          color: '#ffd166', gap: 60 },
-        { text: 'Press R or ENTER to play again',
+          color: '#ffd166', gap: 50 },
+        { text: action,
           font: 'bold 18px ui-monospace, monospace', color: '#fff' },
       ],
-      { startY: 110 }
+      { startY: 100 }
     );
   }
 
