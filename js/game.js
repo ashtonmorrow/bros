@@ -42,10 +42,18 @@
   // Hitbox dims per power state. Sprites in sprites.js are baked at matching
   // sizes (small: 56×48, big: 72×64). When the cat eats cat food, we swap
   // both the sprite set and the hitbox.
+  //   small   — default
+  //   big     — ate cat food; absorbs one extra hit
+  //   shooter — ate magic fish; can throw fishbones (X key); same dims as big
   const POWER = {
-    small: { w: 20, h: 22, spriteW: 56, spriteH: 48 },
-    big:   { w: 22, h: 28, spriteW: 72, spriteH: 64 },
+    small:   { w: 20, h: 22, spriteW: 56, spriteH: 48, sizeKey: 'small' },
+    big:     { w: 22, h: 28, spriteW: 72, spriteH: 64, sizeKey: 'big' },
+    shooter: { w: 22, h: 28, spriteW: 72, spriteH: 64, sizeKey: 'big' },
   };
+  const SHOOT_COOLDOWN = 0.32;        // seconds between fishbones
+  const FISHBONE_VX    = 5.0;
+  const FISHBONE_GRAV  = 0.4;
+  const FISHBONE_BOUNCE_VY = -5.0;
   // Default sizes (small). Used by entity factories before the player powers up.
   const PLAYER_W = POWER.small.w;
   const PLAYER_H = POWER.small.h;
@@ -99,6 +107,7 @@
     enemies: [],
     items: [],
     powerUps: [],           // cans / fish that have popped out of boxes
+    projectiles: [],        // fishbones currently in flight
     flash: 0,               // brief screen flash on stomp (cosmetic)
     deathTimer: 0,
   };
@@ -146,9 +155,12 @@
       jumpBuffer: 0,
       prevJump: false,
       // Power state machine. 'small' = default; 'big' = ate cat food, takes
-      // an extra hit before dying. Sprite + hitbox swap on transition.
+      // an extra hit before dying; 'shooter' = ate magic fish, can throw
+      // fishbones with the X key. Sprite + hitbox swap on transition.
       power: 'small',
       powerXfade: 0,           // brief visual pulse during grow / shrink
+      shootCooldown: 0,        // seconds until next fishbone is allowed
+      prevShoot: false,        // edge-detect the shoot key
     };
   }
 
@@ -170,23 +182,39 @@
     p.powerXfade = 0.4;
   }
 
+  // Enemy stats by type:
+  //   B = dog          — 24×18, walking patroller, ~1 px/frame
+  //   D = child        — 24×12, slower crawl
+  //   W = wasp         — 18×12, flies in a sine wave, can't be stomped
+  const ENEMY_DIMS = {
+    B: { w: 24, h: 18, vx: -0.95, flying: false },
+    D: { w: 24, h: 12, vx: -0.55, flying: false },
+    W: { w: 18, h: 12, vx: -1.6,  flying: true  },
+  };
+
   function makeEnemy(type, px, py) {
-    const tall = type === 'D' ? 18 : 14;
-    const wide = type === 'D' ? 20 : 20;
-    return {
+    const dims = ENEMY_DIMS[type] || ENEMY_DIMS.B;
+    const e = {
       type,
       x: px,
       y: py,
-      w: wide,
-      h: tall,
-      vx: type === 'D' ? -0.55 : -0.85, // dust bunnies are slower
+      w: dims.w,
+      h: dims.h,
+      vx: dims.vx,
       vy: 0,
+      flying: dims.flying,
       alive: true,
       stomped: false,
       stompTimer: 0,
       animTimer: 0,
       animFrame: 0,
     };
+    // Wasps remember the y they spawned at; their sine wave is centred on it.
+    if (e.flying) {
+      e.baseY = py;
+      e.flyPhase = Math.random() * Math.PI * 2;
+    }
+    return e;
   }
 
   // ------ level loading ------------------------------------------------------
@@ -196,6 +224,7 @@
     game.enemies = [];
     game.items = [];
     game.powerUps = [];
+    game.projectiles = [];
     game.totalCollectibles = 0;
     game.goal = null;
 
@@ -236,11 +265,14 @@
           });
           game.totalCollectibles++;
           tiles[y][x] = '.';
-        } else if (c === 'B' || c === 'D') {
-          const enemyH = c === 'D' ? 18 : 14;
-          const enemyW = 20;
-          const ex = wx + (TILE - enemyW) / 2;
-          const ey = (y + 1) * TILE - enemyH;
+        } else if (c === 'B' || c === 'D' || c === 'W') {
+          const dims = ENEMY_DIMS[c];
+          const ex = wx + (TILE - dims.w) / 2;
+          // Walking enemies: feet on the tile below the glyph.
+          // Flying enemies: the glyph row IS where the wasp hovers.
+          const ey = dims.flying
+            ? wy + (TILE - dims.h) / 2
+            : (y + 1) * TILE - dims.h;
           game.enemies.push(makeEnemy(c, ex, ey));
           tiles[y][x] = '.';
         }
@@ -273,6 +305,12 @@
     p.invuln = 1.5;
     p.facing = 'right';
     p.state = 'idle';
+    // Lose all power state on respawn — Mario-style. Reset dimensions
+    // directly because game.playerStart was sized for the small hitbox.
+    p.power = 'small';
+    p.w = POWER.small.w;
+    p.h = POWER.small.h;
+    p.shootCooldown = 0;
     game.cameraX = 0;
   }
 
@@ -342,9 +380,10 @@
   // Stop browser-default scroll when the canvas has focus and arrow keys are pressed.
   canvas.focus();
 
-  function leftKey() { return !!(keys['a'] || keys['arrowleft']); }
+  function leftKey()  { return !!(keys['a'] || keys['arrowleft']); }
   function rightKey() { return !!(keys['d'] || keys['arrowright']); }
-  function jumpKey() { return !!(keys['w'] || keys['arrowup'] || keys[' ']); }
+  function jumpKey()  { return !!(keys['w'] || keys['arrowup'] || keys[' ']); }
+  function shootKey() { return !!(keys['x'] || keys['j']); }
 
   // ------ collision ----------------------------------------------------------
 
@@ -454,8 +493,11 @@
 
     // --- box hit detection ---
     // If the player was rising and just stopped (head bumped a ceiling),
-    // check whether the bumped tile is a Q (cat-food box). If so, turn it
-    // into '@' (used) and spawn a popping cat-food can above it.
+    // check whether the bumped tile is a Q (power-up box). What pops out
+    // depends on the cat's current power state — Mario-style:
+    //   small  → cat-food can (next state: big)
+    //   big    → magic fish   (next state: shooter)
+    //   shooter → magic fish   (extra fish = score bonus)
     if (wasRising && p.vy === 0) {
       const bumpedRow = Math.floor((p.y - 1) / TILE);
       const left = Math.floor(p.x / TILE);
@@ -463,11 +505,22 @@
       for (let x = left; x <= right; x++) {
         if (tileAt(x, bumpedRow) === 'Q') {
           tiles[bumpedRow][x] = '@';
-          spawnCatFood(x, bumpedRow);
+          if (p.power === 'small') spawnCatFood(x, bumpedRow);
+          else                     spawnFish(x, bumpedRow);
           Audio.boxHit();
           break;                  // pop only one box per frame
         }
       }
+    }
+
+    // --- fishbone shooting ---
+    if (p.shootCooldown > 0) p.shootCooldown -= dt;
+    const shootPressed = shootKey() && !p.prevShoot;
+    p.prevShoot = shootKey();
+    if (shootPressed && p.power === 'shooter' && p.shootCooldown <= 0) {
+      spawnFishbone();
+      p.shootCooldown = SHOOT_COOLDOWN;
+      Audio.shoot();
     }
 
     // --- world boundaries ---
@@ -507,33 +560,41 @@
 
       if (e.stomped) {
         e.stompTimer += dt;
-        if (e.stompTimer > 0.45) e.alive = false;
+        // A killed wasp falls out of the sky; squashed grounds-walkers stay flat.
+        if (e.flying) {
+          e.vy += GRAVITY;
+          if (e.vy > MAX_FALL) e.vy = MAX_FALL;
+          e.y += e.vy;
+        }
+        if (e.stompTimer > 0.7) e.alive = false;
         continue;
       }
 
       e.animTimer += dt;
       e.animFrame = Math.floor(e.animTimer * 4) % 2;
 
-      // gravity for enemies — they're affected too so they sit on platforms.
-      e.vy += GRAVITY;
-      if (e.vy > MAX_FALL) e.vy = MAX_FALL;
-
-      // Move horizontally and bounce off walls.
-      const beforeX = e.x;
-      moveX(e, e.vx);
-      if (e.x === beforeX) e.vx = -e.vx; // wall hit reset by moveX
-
-      // Move vertically and snag to ground.
-      e.onGround = false;
-      moveY(e, e.vy);
-
-      // Edge detection: if there's no ground in front, reverse direction.
-      if (e.onGround) {
-        const aheadX = e.vx > 0 ? e.x + e.w + 1 : e.x - 1;
-        const aheadCol = Math.floor(aheadX / TILE);
-        const groundRow = Math.floor((e.y + e.h) / TILE);
-        if (!isSolidAt(aheadCol, groundRow)) {
-          e.vx = -e.vx;
+      if (e.flying) {
+        // Wasp: no gravity, sine-wave vertical wobble around baseY, bounce
+        // off solid tiles horizontally.
+        e.flyPhase += dt * 2.4;
+        e.y = e.baseY + Math.sin(e.flyPhase) * 14;
+        const hitX = moveX(e, e.vx);
+        if (hitX) e.vx = -e.vx;
+      } else {
+        // Walking enemy: gravity + horizontal patrol with wall-bounce + edge
+        // detection so they don't tumble off platforms.
+        e.vy += GRAVITY;
+        if (e.vy > MAX_FALL) e.vy = MAX_FALL;
+        const beforeX = e.x;
+        moveX(e, e.vx);
+        if (e.x === beforeX) e.vx = -e.vx;
+        e.onGround = false;
+        moveY(e, e.vy);
+        if (e.onGround) {
+          const aheadX = e.vx > 0 ? e.x + e.w + 1 : e.x - 1;
+          const aheadCol = Math.floor(aheadX / TILE);
+          const groundRow = Math.floor((e.y + e.h) / TILE);
+          if (!isSolidAt(aheadCol, groundRow)) e.vx = -e.vx;
         }
       }
     }
@@ -563,6 +624,13 @@
       const er = { x: e.x, y: e.y, w: e.w, h: e.h };
       if (!rectOverlap(pr, er)) continue;
 
+      // Wasps cannot be stomped — they sting from above. The player has to
+      // shoot them with a fishbone projectile (or just avoid them).
+      if (e.flying) {
+        hurtPlayer();
+        continue;
+      }
+
       // Stomp: player is descending and feet are within the top 12 px of the
       // enemy. Otherwise, the player is hurt.
       const feetY = p.y + p.h;
@@ -584,8 +652,9 @@
 
   function hurtPlayer() {
     const p = game.player;
-    // If the cat is powered up (big), shrink to small instead of dying.
-    if (p.power === 'big') {
+    // If the cat is powered up (big or shooter), shrink to small instead of
+    // dying — Mario-style: any hit takes the cat all the way back to small.
+    if (p.power === 'big' || p.power === 'shooter') {
       setPlayerPower('small');
       p.invuln = 1.5;
       Audio.powerDown();
@@ -635,7 +704,26 @@
       vy: -1.6,                  // emerges upward
       dirX: 1,                   // walking direction once it lands
       state: 'rising',
-      riseRemaining: 18,         // px of rise before becoming a walker
+      riseRemaining: 18,
+      alive: true,
+    });
+  }
+
+  function spawnFish(col, row) {
+    // Magic fish power-up. Bigger sprite (22×16) and a static rise — Mario's
+    // fire flower doesn't walk; it sits on top of the box. We mirror that:
+    // after rising, the fish stays put on top of the (now used) box waiting
+    // to be collected. That makes it harder to miss after a big head-bump.
+    game.powerUps.push({
+      kind: 'fish',
+      x: col * TILE + (TILE - 22) / 2,
+      y: row * TILE,
+      w: 22, h: 16,
+      vx: 0,
+      vy: -1.4,
+      dirX: 1,
+      state: 'rising',
+      riseRemaining: 20,
       alive: true,
     });
   }
@@ -646,16 +734,16 @@
       if (!item.alive) continue;
 
       if (item.state === 'rising') {
-        // Free-floating rise; skip tile collision so the can emerges through
-        // the (now used) box without bonking it.
+        // Free-floating rise; skip tile collision so the item emerges
+        // through the (now used) box without bonking it.
         item.y += item.vy;
         item.riseRemaining += item.vy;
         if (item.riseRemaining <= 0) {
-          item.state = 'walking';
+          item.state = item.kind === 'fish' ? 'resting' : 'walking';
           item.vy = 0;
-          item.vx = item.dirX * 1.4;
+          if (item.state === 'walking') item.vx = item.dirX * 1.4;
         }
-      } else {
+      } else if (item.state === 'walking') {
         // Walking: gravity + horizontal patrol with wall-bounce.
         item.vy += GRAVITY;
         if (item.vy > MAX_FALL) item.vy = MAX_FALL;
@@ -663,6 +751,7 @@
         if (hitX) item.dirX *= -1;
         moveY(item, item.vy);
       }
+      // 'resting' = stationary, just sits and waits to be collected.
 
       // Despawn if it falls off the world.
       if (item.y > WORLD_H + 64) item.alive = false;
@@ -671,10 +760,10 @@
       const ir = { x: item.x, y: item.y, w: item.w, h: item.h };
       if (rectOverlap({ x: p.x, y: p.y, w: p.w, h: p.h }, ir)) {
         item.alive = false;
-        eatCatFood();
+        if (item.kind === 'food') eatCatFood();
+        else                       eatFish();
       }
     }
-    // Garbage-collect dead entries occasionally so the array doesn't grow.
     if (game.powerUps.length > 16) {
       game.powerUps = game.powerUps.filter(i => i.alive);
     }
@@ -687,9 +776,89 @@
       game.score += 200;
       Audio.powerUp();
     } else {
-      // Already big — just a score bonus.
       game.score += 100;
       Audio.collect();
+    }
+  }
+
+  function eatFish() {
+    const p = game.player;
+    if (p.power === 'shooter') {
+      // Already a shooter — score bonus only.
+      game.score += 200;
+      Audio.collect();
+      return;
+    }
+    setPlayerPower('shooter');
+    game.score += 500;
+    Audio.powerUp();
+  }
+
+  // ------ projectiles (fishbones) ------------------------------------------
+  function spawnFishbone() {
+    const p = game.player;
+    const dirX = p.facing === 'right' ? 1 : -1;
+    game.projectiles.push({
+      // 12×8 sprite, spawned at the cat's "mouth" (about chest height).
+      x: p.x + (dirX === 1 ? p.w + 2 : -14),
+      y: p.y + Math.floor(p.h * 0.35),
+      w: 12, h: 8,
+      vx: dirX * FISHBONE_VX,
+      vy: 1.5,                   // slight downward toss to make an arc
+      bounces: 0,
+      animTimer: 0,
+      frame: 0,
+      alive: true,
+    });
+  }
+
+  function updateProjectiles(dt) {
+    for (const pr of game.projectiles) {
+      if (!pr.alive) continue;
+
+      pr.animTimer += dt;
+      pr.frame = Math.floor(pr.animTimer * 14) % 2;
+
+      // Gravity + horizontal motion; ground collisions bounce, wall
+      // collisions kill the bone.
+      pr.vy += FISHBONE_GRAV;
+      if (pr.vy > MAX_FALL) pr.vy = MAX_FALL;
+
+      const hitX = moveX(pr, pr.vx);
+      if (hitX) { pr.alive = false; continue; }
+
+      pr.onGround = false;
+      moveY(pr, pr.vy);
+      if (pr.onGround && pr.vy === 0) {
+        // Bounce — gives the projectile a slightly silly "skipping" feel.
+        pr.vy = FISHBONE_BOUNCE_VY;
+        pr.bounces++;
+        if (pr.bounces > 4) pr.alive = false;
+      }
+
+      // Despawn if it leaves the world or scrolls way off-camera.
+      if (pr.y > WORLD_H + 64) pr.alive = false;
+      const cam = game.cameraX;
+      if (pr.x + pr.w < cam - 80 || pr.x > cam + VIEW_W + 80) pr.alive = false;
+
+      // Enemy collision — fishbones one-shot enemies and disappear.
+      for (const e of game.enemies) {
+        if (!e.alive || e.stomped) continue;
+        if (rectOverlap({ x: pr.x, y: pr.y, w: pr.w, h: pr.h },
+                        { x: e.x,  y: e.y,  w: e.w,  h: e.h })) {
+          e.stomped = true;
+          e.stompTimer = 0;
+          e.y = e.y + e.h - 6;
+          e.h = 6;
+          pr.alive = false;
+          game.score += 200;
+          Audio.stomp();
+          break;
+        }
+      }
+    }
+    if (game.projectiles.length > 24) {
+      game.projectiles = game.projectiles.filter(p => p.alive);
     }
   }
 
@@ -742,6 +911,7 @@
       updatePlayer(dt);
       updateEnemies(dt);
       updatePowerUps(dt);
+      updateProjectiles(dt);
       updateCollisions(dt);
       updateItems(dt);
       updateCamera();
@@ -848,24 +1018,45 @@
     const camX = Math.floor(game.cameraX);
     for (const item of game.powerUps) {
       if (!item.alive) continue;
-      // For now there's only the cat-food can. Fish projectile-grant boxes
-      // come in the next phase.
-      const sprite = Sprites.catFoodCan;
+      const sprite = item.kind === 'fish' ? Sprites.magicFish : Sprites.catFoodCan;
       ctx.drawImage(sprite, Math.floor(item.x - camX), Math.floor(item.y));
     }
   }
+
+  function drawProjectiles() {
+    const camX = Math.floor(game.cameraX);
+    for (const pr of game.projectiles) {
+      if (!pr.alive) continue;
+      const sprite = pr.frame === 0 ? Sprites.fishbone.f0 : Sprites.fishbone.f1;
+      // Flip horizontally if travelling left so the skull leads.
+      if (pr.vx < 0) {
+        ctx.save();
+        ctx.translate(Math.floor(pr.x - camX) + pr.w, Math.floor(pr.y));
+        ctx.scale(-1, 1);
+        ctx.drawImage(sprite, 0, 0);
+        ctx.restore();
+      } else {
+        ctx.drawImage(sprite, Math.floor(pr.x - camX), Math.floor(pr.y));
+      }
+    }
+  }
+
+  // Map glyph → sprite set in Sprites.* — keeps drawEnemies short and
+  // makes it trivial to swap art later (just change the mapping).
+  const ENEMY_SPRITE = {
+    B: Sprites.dog,    // dog
+    D: Sprites.child,  // crawling child
+    W: Sprites.wasp,   // wasp
+  };
 
   function drawEnemies() {
     const camX = Math.floor(game.cameraX);
     for (const e of game.enemies) {
       if (!e.alive) continue;
-      let sprite;
-      if (e.stomped) {
-        sprite = e.type === 'B' ? Sprites.bug.squashed : Sprites.dust.squashed;
-      } else {
-        const set = e.type === 'B' ? Sprites.bug : Sprites.dust;
-        sprite = e.animFrame === 0 ? set.walk0 : set.walk1;
-      }
+      const set = ENEMY_SPRITE[e.type] || ENEMY_SPRITE.B;
+      const sprite = e.stomped
+        ? set.squashed
+        : (e.animFrame === 0 ? set.walk0 : set.walk1);
       ctx.drawImage(sprite, Math.floor(e.x - camX), Math.floor(e.y));
     }
   }
@@ -927,6 +1118,15 @@
     ctx.fillText(`SCORE  ${game.score}`, 460, 18);
     ctx.fillStyle = game.timer < 30 ? '#ff8b8b' : '#fff';
     ctx.fillText(`TIME  ${game.timer}`, 660, 18);
+
+    // Shooter indicator — a tiny magic-fish icon below the lives row when
+    // the cat is in the shooter state, with the X-key reminder.
+    if (game.player && game.player.power === 'shooter') {
+      ctx.drawImage(Sprites.magicFish, 12, 40);
+      ctx.fillStyle = '#84e36b';
+      ctx.font = 'bold 12px ui-monospace, Menlo, monospace';
+      ctx.fillText('X = SHOOT', 40, 47);
+    }
   }
 
   function drawCenteredText(lines, options = {}) {
@@ -1033,7 +1233,7 @@
 
     ctx.font = '12px ui-monospace, monospace';
     ctx.fillStyle = '#84e36b';
-    ctx.fillText('In game: A/D or arrows to move · W/↑/Space to jump · P to pause',
+    ctx.fillText('In game: A/D or arrows to move · W/↑/Space to jump · X to shoot (when powered) · P to pause',
                  VIEW_W / 2, 432);
     ctx.restore();
   }
@@ -1142,6 +1342,7 @@
     drawGoal();
     drawItems();
     drawPowerUps();
+    drawProjectiles();
     drawEnemies();
     drawPlayer();
     drawFlash();

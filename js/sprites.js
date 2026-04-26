@@ -374,130 +374,239 @@
   //  Bug enemy (purple beetle) — small, walks on the ground.
   // ---------------------------------------------------------------------------
 
-  function drawBug(frame) {
-    const c = makeCanvas(20, 14);
-    const ctx = c.getContext('2d');
-
-    const SHELL = '#5a3a8c';
-    const HIGHLIGHT = '#8e60d6';
-    const DARK = '#3a2562';
-
-    // shell
-    ctx.fillStyle = SHELL;
-    ctx.fillRect(2, 4, 16, 8);
-    ctx.fillRect(3, 3, 14, 1);
-    ctx.fillRect(3, 12, 14, 1);
-
-    // shell highlight stripe
-    ctx.fillStyle = HIGHLIGHT;
-    ctx.fillRect(4, 5, 12, 2);
-    ctx.fillRect(8, 7, 4, 1);
-
-    // segment line
-    ctx.fillStyle = DARK;
-    ctx.fillRect(9, 4, 2, 8);
-
-    // eyes
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(5, 6, 3, 3);
-    ctx.fillRect(12, 6, 3, 3);
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(6, 7, 1, 2);
-    ctx.fillRect(13, 7, 1, 2);
-
-    // antennae
-    ctx.fillStyle = DARK;
-    ctx.fillRect(6, 1, 1, 3);
-    ctx.fillRect(13, 1, 1, 3);
-    ctx.fillRect(5, 0, 1, 1);
-    ctx.fillRect(14, 0, 1, 1);
-
-    // legs (animate)
-    ctx.fillStyle = DARK;
-    if (frame === 0) {
-      ctx.fillRect(3, 12, 2, 2);
-      ctx.fillRect(9, 12, 2, 2);
-      ctx.fillRect(15, 12, 2, 2);
-    } else {
-      ctx.fillRect(5, 12, 2, 2);
-      ctx.fillRect(11, 12, 2, 2);
-      ctx.fillRect(13, 12, 2, 2);
-    }
-
-    return c;
-  }
-
-  function drawBugSquashed() {
-    const c = makeCanvas(20, 8);
-    const ctx = c.getContext('2d');
-    ctx.fillStyle = '#5a3a8c';
-    ctx.fillRect(2, 4, 16, 4);
-    ctx.fillStyle = '#3a2562';
-    ctx.fillRect(2, 7, 16, 1);
-    ctx.fillStyle = '#8e60d6';
-    ctx.fillRect(4, 5, 12, 1);
-    return c;
-  }
-
   // ---------------------------------------------------------------------------
-  //  Dust bunny — fluffy grey blob.
+  //  Dog — walking patroller, larger than a bug. Brown silhouette with
+  //  floppy ears, four legs, a perky tail, side-view facing right. Two-frame
+  //  walk cycle (front legs and back legs alternate). 24 × 18.
   // ---------------------------------------------------------------------------
 
-  function drawDust(frame) {
-    const c = makeCanvas(20, 18);
+  function drawDog(frame) {
+    const c = makeCanvas(24, 18);
     const ctx = c.getContext('2d');
+    const FUR  = '#8b5a2b';
+    const DARK = '#5a3a1a';
+    const LIGHT= '#c08a52';
+    const PINK = '#e7708a';
 
-    const FLUFF = '#9da3b3';
-    const LIGHT = '#c5cad7';
-    const DARK = '#6b7280';
-
-    // body
-    ctx.fillStyle = FLUFF;
-    ctx.fillRect(3, 5, 14, 11);
-    ctx.fillRect(4, 4, 12, 1);
-    ctx.fillRect(4, 16, 12, 1);
-    ctx.fillRect(2, 7, 1, 7);
-    ctx.fillRect(17, 7, 1, 7);
-
-    // tufts on top
-    ctx.fillRect(6, 3, 2, 2);
-    ctx.fillRect(10, 2, 2, 3);
-    ctx.fillRect(13, 3, 2, 2);
-
-    // bottom shadow
-    ctx.fillStyle = DARK;
-    ctx.fillRect(4, 16, 12, 1);
-
-    // highlights
+    // body — long oval
+    ctx.fillStyle = FUR;
+    ctx.fillRect(3, 7, 14, 7);
+    ctx.fillRect(4, 6, 12, 1);
+    // belly underline
     ctx.fillStyle = LIGHT;
-    ctx.fillRect(5, 6, 3, 2);
-    ctx.fillRect(12, 7, 3, 2);
+    ctx.fillRect(5, 12, 10, 2);
 
-    // eyes
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(7, 9, 2, 2);
-    ctx.fillRect(11, 9, 2, 2);
+    // tail (perky, up-and-back)
+    ctx.fillStyle = FUR;
+    ctx.fillRect(0, 4, 2, 3);
+    ctx.fillRect(2, 5, 2, 2);
+    ctx.fillRect(1, 6, 2, 1);
 
-    // mouth — animates between closed and open
+    // head (right side)
+    ctx.fillStyle = FUR;
+    ctx.fillRect(15, 5, 7, 7);
+    ctx.fillRect(16, 4, 5, 1);
+    // muzzle
+    ctx.fillRect(20, 8, 3, 3);
+    // floppy ear
+    ctx.fillStyle = DARK;
+    ctx.fillRect(15, 4, 2, 4);
+    ctx.fillRect(16, 7, 1, 2);
+
+    // eye
+    ctx.fillStyle = '#000';
+    ctx.fillRect(18, 7, 1, 2);
+    // eye glint
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(18, 7, 1, 1);
+    // nose
+    ctx.fillStyle = '#000';
+    ctx.fillRect(22, 8, 1, 1);
+    // tongue (just a hint)
+    ctx.fillStyle = PINK;
+    ctx.fillRect(21, 10, 1, 1);
+
+    // legs — alternate frame
+    ctx.fillStyle = DARK;
     if (frame === 0) {
-      ctx.fillRect(9, 13, 2, 1);
+      ctx.fillRect(4, 14, 2, 4);    // front-left forward
+      ctx.fillRect(8, 14, 2, 3);
+      ctx.fillRect(12, 14, 2, 3);
+      ctx.fillRect(15, 14, 2, 4);
     } else {
-      ctx.fillRect(9, 13, 2, 2);
+      ctx.fillRect(5, 14, 2, 3);
+      ctx.fillRect(7, 14, 2, 4);    // back-left
+      ctx.fillRect(13, 14, 2, 4);
+      ctx.fillRect(15, 14, 2, 3);
     }
+    return c;
+  }
+
+  function drawDogSquashed() {
+    const c = makeCanvas(24, 8);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#8b5a2b';
+    ctx.fillRect(2, 3, 20, 5);
+    ctx.fillStyle = '#5a3a1a';
+    ctx.fillRect(2, 7, 20, 1);
+    ctx.fillStyle = '#c08a52';
+    ctx.fillRect(5, 4, 14, 1);
+    // ear flop
+    ctx.fillRect(2, 2, 3, 1);
+    return c;
+  }
+
+  // ---------------------------------------------------------------------------
+  //  Small child crawling — short hitbox, slow patrol, in pyjamas. Two-frame
+  //  crawl cycle (alternating arm/leg). Stylised on purpose: pyjama onesie
+  //  + cap so the silhouette reads as "kid on hands and knees" at 24 × 12.
+  // ---------------------------------------------------------------------------
+
+  function drawChild(frame) {
+    const c = makeCanvas(24, 12);
+    const ctx = c.getContext('2d');
+    const SUIT  = '#7cc8ff';     // pyjama blue
+    const SUIT2 = '#5a9fdb';
+    const SKIN  = '#f6c7a3';
+    const DARK  = '#2a3340';
+    const HAIR  = '#5a3a1a';
+
+    // body / pyjama back (long horizontal)
+    ctx.fillStyle = SUIT;
+    ctx.fillRect(3, 5, 14, 5);
+    ctx.fillRect(4, 4, 12, 1);
+    // pyjama dot pattern
+    ctx.fillStyle = SUIT2;
+    ctx.fillRect(6, 6, 1, 1);
+    ctx.fillRect(10, 7, 1, 1);
+    ctx.fillRect(13, 5, 1, 1);
+    ctx.fillRect(15, 8, 1, 1);
+
+    // head (right side)
+    ctx.fillStyle = SKIN;
+    ctx.fillRect(16, 3, 5, 6);
+    ctx.fillRect(17, 2, 3, 1);
+    // hair tuft + cap
+    ctx.fillStyle = HAIR;
+    ctx.fillRect(17, 1, 3, 2);
+    ctx.fillRect(16, 2, 1, 1);
+    ctx.fillRect(20, 2, 1, 1);
+    // eye
+    ctx.fillStyle = DARK;
+    ctx.fillRect(18, 5, 1, 1);
+    // cheek dab
+    ctx.fillStyle = '#e7708a';
+    ctx.fillRect(20, 6, 1, 1);
+
+    // arm (front leg) and leg (back) — alternate
+    ctx.fillStyle = SUIT;
+    if (frame === 0) {
+      ctx.fillRect(4, 9, 3, 3);    // back leg planted
+      ctx.fillRect(14, 9, 3, 3);   // front arm forward
+      ctx.fillRect(10, 10, 2, 2);  // mid leg lifted
+    } else {
+      ctx.fillRect(5, 9, 3, 3);
+      ctx.fillRect(13, 9, 3, 3);
+      ctx.fillRect(8, 10, 2, 2);
+    }
+    // booties at the limbs
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(4, 11, 2, 1);
+    ctx.fillRect(15, 11, 2, 1);
 
     return c;
   }
 
-  function drawDustSquashed() {
-    const c = makeCanvas(20, 8);
+  function drawChildSquashed() {
+    const c = makeCanvas(24, 6);
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#9da3b3';
-    ctx.fillRect(2, 3, 16, 5);
-    ctx.fillStyle = '#c5cad7';
-    ctx.fillRect(4, 4, 4, 1);
-    ctx.fillRect(11, 4, 4, 1);
-    ctx.fillStyle = '#6b7280';
-    ctx.fillRect(2, 7, 16, 1);
+    ctx.fillStyle = '#7cc8ff';
+    ctx.fillRect(2, 1, 20, 4);
+    ctx.fillStyle = '#5a9fdb';
+    ctx.fillRect(2, 4, 20, 1);
+    ctx.fillStyle = '#f6c7a3';
+    ctx.fillRect(17, 2, 4, 2);
+    return c;
+  }
+
+  // ---------------------------------------------------------------------------
+  //  Wasp — flying, sine-wave patrol. Yellow + black striped body, twin
+  //  wings (animated on a 2-frame flap), wraparound eyes. 18 × 12. Cannot
+  //  be stomped — must be killed with a fishbone projectile.
+  // ---------------------------------------------------------------------------
+
+  function drawWasp(frame) {
+    const c = makeCanvas(18, 12);
+    const ctx = c.getContext('2d');
+    const Y    = '#ffd166';
+    const Y2   = '#e89a3a';
+    const DARK = '#1a1a1e';
+    // wings — translucent grey rectangles, flap by changing height
+    const wingH = frame === 0 ? 4 : 6;
+    const wingY = frame === 0 ? 1 : 0;
+    ctx.fillStyle = 'rgba(220,230,255,0.55)';
+    ctx.fillRect(3, wingY, 5, wingH);
+    ctx.fillRect(10, wingY, 5, wingH);
+    // wing veins
+    ctx.fillStyle = 'rgba(120,140,170,0.7)';
+    ctx.fillRect(5, wingY + 1, 1, wingH - 2);
+    ctx.fillRect(12, wingY + 1, 1, wingH - 2);
+
+    // body — striped abdomen
+    ctx.fillStyle = Y;
+    ctx.fillRect(3, 5, 12, 5);
+    ctx.fillRect(4, 4, 10, 1);
+    ctx.fillRect(4, 10, 10, 1);
+    // black stripes
+    ctx.fillStyle = DARK;
+    ctx.fillRect(6, 5, 2, 5);
+    ctx.fillRect(10, 5, 2, 5);
+    // shading
+    ctx.fillStyle = Y2;
+    ctx.fillRect(3, 9, 12, 1);
+
+    // head (right end) — round
+    ctx.fillStyle = DARK;
+    ctx.fillRect(13, 5, 3, 5);
+    ctx.fillRect(14, 4, 2, 1);
+    ctx.fillRect(14, 10, 2, 1);
+    // big compound eye
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(14, 6, 2, 2);
+    ctx.fillStyle = DARK;
+    ctx.fillRect(15, 7, 1, 1);
+
+    // stinger (left tail end)
+    ctx.fillStyle = DARK;
+    ctx.fillRect(0, 7, 3, 1);
+    ctx.fillRect(2, 6, 1, 3);
+
+    return c;
+  }
+
+  function drawWaspKilled() {
+    // After being shot the wasp falls — an X-eyed limp version. Same 18×12
+    // canvas so swap-in is trivial.
+    const c = makeCanvas(18, 12);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#ffd166';
+    ctx.fillRect(3, 5, 12, 5);
+    ctx.fillStyle = '#1a1a1e';
+    ctx.fillRect(6, 5, 2, 5);
+    ctx.fillRect(10, 5, 2, 5);
+    ctx.fillRect(13, 5, 3, 5);
+    // X eye
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(14, 6, 2, 2);
+    ctx.fillStyle = '#1a1a1e';
+    ctx.fillRect(14, 6, 1, 1);
+    ctx.fillRect(15, 7, 1, 1);
+    ctx.fillRect(15, 6, 1, 1);
+    ctx.fillRect(14, 7, 1, 1);
+    // limp wings (down)
+    ctx.fillStyle = 'rgba(180,190,210,0.5)';
+    ctx.fillRect(3, 10, 5, 2);
+    ctx.fillRect(10, 10, 5, 2);
     return c;
   }
 
@@ -744,6 +853,74 @@
     return c;
   }
 
+  // The "magic fish" power-up. Pops out of a Q-box when the cat is already
+  // big — eating it grants the shooter state (fishbone projectile). Larger
+  // and gold-tinted compared with the regular fish *treat* so it reads as
+  // "this is special" at a glance.
+  function drawMagicFish() {
+    const c = makeCanvas(22, 16);
+    const ctx = c.getContext('2d');
+    // body
+    ctx.fillStyle = '#5cd4f0';
+    ctx.fillRect(2, 4, 13, 8);
+    ctx.fillRect(3, 3, 11, 1);
+    ctx.fillRect(3, 12, 11, 1);
+    ctx.fillRect(4, 2, 9, 1);
+    ctx.fillRect(4, 13, 9, 1);
+    // tail (longer / forked)
+    ctx.fillRect(15, 4, 2, 8);
+    ctx.fillRect(17, 3, 2, 10);
+    ctx.fillRect(19, 1, 2, 14);
+    // belly
+    ctx.fillStyle = '#a8ecf8';
+    ctx.fillRect(3, 6, 9, 4);
+    // eye
+    ctx.fillStyle = '#000';
+    ctx.fillRect(5, 5, 1, 2);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(5, 5, 1, 1);
+    // gold sparkles + stripe (the "magic" tell)
+    ctx.fillStyle = '#ffd166';
+    ctx.fillRect(8, 4, 1, 1);
+    ctx.fillRect(11, 7, 1, 1);
+    ctx.fillRect(7, 9, 1, 1);
+    ctx.fillStyle = '#fbbf24';
+    ctx.fillRect(7, 1, 1, 1);
+    ctx.fillRect(10, 0, 1, 1);
+    ctx.fillRect(13, 1, 1, 1);
+    return c;
+  }
+
+  // Fishbone projectile — the cat throws these once it has eaten a magic
+  // fish. Two frames: ribs alternate between offset positions to fake a
+  // spinning motion as the bone arcs through the air. 12×8.
+  function drawFishbone(frame) {
+    const c = makeCanvas(12, 8);
+    const ctx = c.getContext('2d');
+    // skull at the head
+    ctx.fillStyle = '#fff8e8';
+    ctx.fillRect(0, 2, 3, 4);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 3, 1, 1);          // eye socket
+    // central spine
+    ctx.fillStyle = '#fff8e8';
+    ctx.fillRect(2, 3, 9, 2);
+    // ribs — alternate between (2,5,8) and (3,6,9) for a tumble effect
+    if (frame === 0) {
+      ctx.fillRect(2, 1, 1, 6);
+      ctx.fillRect(5, 1, 1, 6);
+      ctx.fillRect(8, 1, 1, 6);
+    } else {
+      ctx.fillRect(3, 1, 1, 6);
+      ctx.fillRect(6, 1, 1, 6);
+      ctx.fillRect(9, 1, 1, 6);
+    }
+    // tail bone — small chevron at right
+    ctx.fillStyle = '#fff8e8';
+    ctx.fillRect(11, 2, 1, 4);
+    return c;
+  }
+
   // The cat-food can that pops out of a box. Drawn as a free-floating item
   // sprite, 14×16. Same colour scheme as the icon on the box face.
   function drawCatFoodCan() {
@@ -861,13 +1038,16 @@
     drawCat: drawCat,
     catSpriteSize: { w: CAT_SPRITE_W, h: CAT_SPRITE_H, scale: CAT_SCALE },
 
-    bug: { walk0: drawBug(0), walk1: drawBug(1), squashed: drawBugSquashed() },
-    dust: { walk0: drawDust(0), walk1: drawDust(1), squashed: drawDustSquashed() },
+    dog:   { walk0: drawDog(0),   walk1: drawDog(1),   squashed: drawDogSquashed() },
+    child: { walk0: drawChild(0), walk1: drawChild(1), squashed: drawChildSquashed() },
+    wasp:  { walk0: drawWasp(0),  walk1: drawWasp(1),  squashed: drawWaspKilled() },
     yarn: drawYarn(),
     fish: drawFish(),
     catHead: drawCatHead(),
     box:        { idle0: drawBox(0), idle1: drawBox(1), used: drawBoxUsed() },
     catFoodCan: drawCatFoodCan(),
+    magicFish:  drawMagicFish(),
+    fishbone:   { f0: drawFishbone(0), f1: drawFishbone(1) },
     grass: drawGrass(),
     dirt: drawDirt(),
     platform: drawPlatform(),

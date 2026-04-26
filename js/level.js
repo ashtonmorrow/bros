@@ -56,8 +56,9 @@
  *   'G'  goal (cozy bed)
  *   'F'  fish treat   (+10)
  *   'Y'  yarn ball    (+50)
- *   'B'  bug enemy    (small fast patroller)
- *   'D'  dust bunny   (slow patroller)
+ *   'B'  dog          (walking patroller, larger; stomp from above to kill)
+ *   'D'  crawling child(short, slow patroller; stomp to clear)
+ *   'W'  wasp         (flying, sine-wave path; CANNOT be stomped — shoot it)
  *
  * Adding new entity / tile types: extend the legend, then add a case to the
  * `loadLevel` switch in `js/game.js`.
@@ -204,6 +205,7 @@
 
   // Sky-route end: drops back to ground at col 135.
   ground(135, 14);
+  ent(138, 6, 'W');                  // first wasp — must be shot, not stomped
   ent(140, 11, 'F');
   ent(143, 11, 'B');
   ent(146, 11, 'D');                 // 3 enemies in a row — apply skills
@@ -225,12 +227,13 @@
 
   // Drop-zone ground (cols 170–184). Box here rewards getting through the
   // hardest pit + tower section. A small cluster of treats welcomes the cat
-  // back to flat ground.
+  // back to flat ground. Wasp patrols above the dog.
   ground(170, 15);
   ent(171, 11, 'F');
   ent(174, 11, 'F');
   ent(176, 8, 'Q');                  // Act 3 reward box
   ent(178, 11, 'B');
+  ent(180, 7, 'W');                  // wasp patrols over the dog
   ent(181, 11, 'F');
   ent(182, 11, 'F');
   ent(184, 11, 'F');
@@ -261,6 +264,7 @@
   ent(209, 11, 'F');
   ent(210, 11, 'D');                 // single enemy back-to-final
   ent(212, 11, 'F');
+  ent(213, 6, 'W');                  // last wasp — final shooter test
   ent(214, 11, 'F');
   // Bonus: a high yarn ball above the final stretch.
   plat(215, 7, 4);

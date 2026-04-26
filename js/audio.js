@@ -134,6 +134,11 @@
       setTimeout(() => tone({ freq: 494, type: 'square', dur: 0.16, vol: 0.18, slide: -120 }), 90);
     },
 
+    // Cat throws a fishbone — short descending square-wave blip.
+    shoot() {
+      tone({ freq: 880, type: 'square', dur: 0.06, vol: 0.13, slide: -240 });
+    },
+
     // Background music — chiptune-style 4-bar loop synthesised in Web Audio.
     // Two voices: a square-wave melody arpeggiating an I–V–vi–IV chord
     // progression in C, and a triangle-wave bass on the chord roots.
