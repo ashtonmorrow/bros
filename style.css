@@ -113,6 +113,116 @@ body {
 .bezel-link:hover  { color: var(--accent-2); }
 .bezel-link:active { color: var(--accent); }
 
+/* Buttons rendered with bezel-link styling so the music toggle blends in
+   visually with the surrounding HOME / README / SOURCE anchor tags. */
+.bezel-button {
+  background: transparent;
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+}
+.bezel-button[aria-pressed="false"] { color: #6a6573; text-decoration: line-through; }
+
+/* ----- Leaderboard strip: thin board between the bezel and the canvas ----- */
+.leaderboard {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  border-top: 1px solid rgba(140, 110, 70, 0.25);
+  border-bottom: 1px solid rgba(140, 110, 70, 0.25);
+  flex-wrap: wrap;
+}
+.lb-row {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 130px;
+}
+.lb-rank  { color: var(--accent-2); min-width: 18px; }
+.lb-name  { color: var(--ink);      min-width: 50px; letter-spacing: 2px; }
+.lb-score { color: var(--ink-dim);  min-width: 38px; text-align: right; margin-left: auto; }
+.lb-empty { opacity: 0.45; }
+@media (max-width: 540px) {
+  .leaderboard { gap: 12px; font-size: 8px; padding: 5px 4px; }
+  .lb-row { gap: 6px; min-width: 0; }
+  .lb-name  { min-width: 38px; letter-spacing: 1.5px; }
+  .lb-score { min-width: 30px; }
+}
+
+/* ----- Name-entry overlay (high-score prompt) ----- */
+.lb-entry {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(15, 12, 28, 0.95);
+  border: 2px solid var(--accent);
+  padding: 16px 24px 14px;
+  z-index: 10;
+  text-align: center;
+  font-family: 'Press Start 2P', monospace;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+.lb-entry.hidden { display: none; }
+.lb-entry-title {
+  color: var(--accent);
+  font-size: 14px;
+  margin-bottom: 12px;
+  letter-spacing: 3px;
+  text-shadow: 0 0 8px rgba(255, 209, 102, 0.4);
+}
+.lb-entry-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.lb-name-input {
+  font-family: inherit;
+  font-size: 14px;
+  letter-spacing: 4px;
+  width: 140px;
+  padding: 8px 10px;
+  background: var(--bg-2);
+  color: var(--ink);
+  border: 2px solid var(--ink-dim);
+  text-align: center;
+  text-transform: uppercase;
+  outline: none;
+  caret-color: var(--accent);
+}
+.lb-name-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.3);
+}
+.lb-submit {
+  font-family: inherit;
+  font-size: 10px;
+  padding: 8px 12px;
+  background: var(--accent);
+  color: var(--bg-2);
+  border: 2px solid var(--accent);
+  cursor: pointer;
+  letter-spacing: 2px;
+  box-shadow: 2px 2px 0 #000;
+}
+.lb-submit:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 #000;
+}
+.lb-entry-hint {
+  margin-top: 10px;
+  font-size: 8px;
+  color: var(--ink-dim);
+  letter-spacing: 1.5px;
+}
+
 /* ----- Screen wrap: holds the canvas at the right aspect ratio ----- */
 .screen-wrap {
   position: relative;

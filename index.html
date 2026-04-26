@@ -84,6 +84,9 @@
       </span>
       <span class="bezel-center">POUNCE <span class="dot">&#9632;</span> 2026</span>
       <span class="bezel-right">
+        <button id="music-toggle" class="bezel-link bezel-button"
+                type="button" aria-pressed="true"
+                title="Toggle music (M)">&#9834; ON</button>
         <a href="https://github.com/ashtonmorrow/bros" class="bezel-link"
            target="_blank" rel="noopener noreferrer">SOURCE</a>
         <a href="https://ski.mike-lee.me/" class="bezel-link"
@@ -91,16 +94,35 @@
       </span>
     </div>
 
+    <!-- Top-3 leaderboard strip. Painted from localStorage cache instantly,
+         then refreshed from Supabase on load + after each submit. -->
+    <div id="leaderboard" class="leaderboard" aria-label="Top three scores"></div>
+
     <div class="screen-wrap">
       <canvas id="game" width="800" height="480"
               aria-label="Side-scrolling cat platformer"></canvas>
+
+      <!-- Name-entry overlay. Hidden until the player cracks the top three;
+           shown over the win / game-over screen. -->
+      <div id="lb-entry" class="lb-entry hidden" role="dialog" aria-label="High score entry">
+        <div class="lb-entry-title">NEW HIGH SCORE</div>
+        <div class="lb-entry-row">
+          <input id="lb-name-input" class="lb-name-input" type="text"
+                 maxlength="5" autocomplete="off" spellcheck="false"
+                 aria-label="Enter your initials, up to 5 characters">
+          <button id="lb-submit" class="lb-submit" type="button">OK</button>
+        </div>
+        <div class="lb-entry-hint">Up to 5 characters &middot; ENTER to save</div>
+      </div>
     </div>
 
     <p class="controls">
       <strong>Move</strong> A / D or &larr; / &rarr; &nbsp;&middot;&nbsp;
       <strong>Jump</strong> W, &uarr;, or Space &nbsp;&middot;&nbsp;
+      <strong>Pounce</strong> S or &darr; (in air) &nbsp;&middot;&nbsp;
       <strong>Shoot</strong> X (when powered) &nbsp;&middot;&nbsp;
-      <strong>Pause</strong> P
+      <strong>Pause</strong> P &nbsp;&middot;&nbsp;
+      <strong>Music</strong> M
     </p>
   </main>
 

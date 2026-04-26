@@ -54,6 +54,12 @@
   const FISHBONE_VX    = 5.0;
   const FISHBONE_GRAV  = 0.4;
   const FISHBONE_BOUNCE_VY = -5.0;
+
+  // Down-pounce: the cat dive-bombs straight down. Faster fall than gravity
+  // alone, no horizontal control, instant-kill on contact (incl. wasps).
+  const POUND_VY        = 14;          // initial slam speed
+  const POUND_BOUNCE_VY = -6.0;        // small bounce off the floor on landing
+  const POUND_LOCKOUT   = 0.05;        // ignore down-press for a beat after landing
   // Default sizes (small). Used by entity factories before the player powers up.
   const PLAYER_W = POWER.small.w;
   const PLAYER_H = POWER.small.h;
@@ -68,6 +74,231 @@
   } catch (e) { /* localStorage may be disabled — that's fine */ }
   function persistCat() {
     try { localStorage.setItem(CAT_STORAGE_KEY, selectedCat); } catch (e) {}
+  }
+
+  // Music on/off persists too. Default ON. Mapping is stored as a 0/1 string.
+  const MUSIC_STORAGE_KEY = 'pounce_music';
+  let musicEnabled = true;
+  try {
+    const saved = localStorage.getItem(MUSIC_STORAGE_KEY);
+    if (saved === '0') musicEnabled = false;
+  } catch (e) {}
+  function persistMusicPref() {
+    try { localStorage.setItem(MUSIC_STORAGE_KEY, musicEnabled ? '1' : '0'); } catch (e) {}
+  }
+  function syncMusicButton() {
+    const btn = document.getElementById('music-toggle');
+    if (!btn) return;
+    btn.textContent = musicEnabled ? '♪ ON' : '♪ OFF';
+    btn.setAttribute('aria-pressed', musicEnabled ? 'true' : 'false');
+  }
+  function toggleMusic() {
+    musicEnabled = !musicEnabled;
+    persistMusicPref();
+    syncMusicButton();
+    if (musicEnabled) {
+      // Only resume the music if the run is actually in progress.
+      if (game.mode === 'playing') tryStartMusic();
+    } else {
+      Audio.musicStop();
+    }
+  }
+  // Wrapper used everywhere musicStart would otherwise be called directly.
+  // Skips entirely if the player has muted the soundtrack.
+  function tryStartMusic() {
+    if (musicEnabled) Audio.musicStart();
+  }
+
+  // -------------------------------------------------------------------------
+  //  TOP-3 LEADERBOARD — global, Supabase-backed (cat-ski's pattern)
+  // -------------------------------------------------------------------------
+  // localStorage caches the most recent fetched board so the strip paints
+  // instantly at boot. On boot and on each submit, we re-fetch the
+  // authoritative top-3 from Supabase to merge in concurrent plays.
+  //
+  // The Supabase publishable (anon) key is intentionally shipped to the
+  // browser — it's the public side of an RLS-protected table where anon
+  // can SELECT and INSERT but nothing else. Cheating welcome; resets are
+  // manual.
+  //
+  // To wire this up against your own table, create one in Supabase with:
+  //   id          int8 (primary, identity)
+  //   created_at  timestamptz default now()
+  //   name        varchar
+  //   score       int8
+  // RLS on, with policies allowing anon SELECT and anon INSERT only.
+  //
+  const SUPABASE_URL    = 'https://pdjrvlhepiwkshxerkpz.supabase.co';
+  const SUPABASE_KEY    = 'sb_publishable_NrfBsFhfj0DSKqDEKeUCMQ_H5oDG-Zv';
+  const SCORES_TABLE    = 'pounce_scores';
+  const LB_LIMIT        = 3;
+  const LB_CACHE_KEY    = 'pounce_leaderboard_v1';
+  const LB_LASTNAME_KEY = 'pounce_lb_last_name';
+
+  function sanitizeBoard(arr) {
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter(e => e && typeof e.name === 'string' && typeof e.score === 'number')
+      .map(e => ({ name: e.name, score: e.score }))
+      .slice(0, LB_LIMIT);
+  }
+  function loadLeaderboardCache() {
+    try {
+      const raw = localStorage.getItem(LB_CACHE_KEY);
+      if (raw) return sanitizeBoard(JSON.parse(raw));
+    } catch (_) {}
+    return [];
+  }
+  function saveLeaderboardCache() {
+    try { localStorage.setItem(LB_CACHE_KEY, JSON.stringify(leaderboard)); }
+    catch (_) {}
+  }
+  let leaderboard = loadLeaderboardCache();
+
+  const lbEl = document.getElementById('leaderboard');
+  function renderLeaderboard() {
+    if (!lbEl) return;
+    lbEl.innerHTML = '';
+    for (let i = 0; i < LB_LIMIT; i++) {
+      const e = leaderboard[i];
+      const row = document.createElement('span');
+      row.className = 'lb-row' + (e ? '' : ' lb-empty');
+      const r = document.createElement('span');
+      r.className = 'lb-rank';
+      r.textContent = (i + 1) + '.';
+      const n = document.createElement('span');
+      n.className = 'lb-name';
+      n.textContent = e ? e.name : '---';
+      const s = document.createElement('span');
+      s.className = 'lb-score';
+      s.textContent = e ? String(e.score) : '-----';
+      row.appendChild(r); row.appendChild(n); row.appendChild(s);
+      lbEl.appendChild(row);
+    }
+  }
+  renderLeaderboard();
+
+  async function fetchGlobalLeaderboard() {
+    if (!SUPABASE_URL || !SUPABASE_KEY) return;
+    const url = SUPABASE_URL + '/rest/v1/' + SCORES_TABLE +
+                '?select=name,score&order=score.desc&limit=' + LB_LIMIT;
+    try {
+      const res = await fetch(url, {
+        headers: {
+          'apikey':        SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY,
+        },
+      });
+      if (!res.ok) return;
+      const rows = await res.json();
+      leaderboard = sanitizeBoard(rows);
+      saveLeaderboardCache();
+      renderLeaderboard();
+    } catch (_) {
+      // Network down — keep the cached strip. No-op.
+    }
+  }
+
+  async function submitGlobalScore(name, score) {
+    if (!SUPABASE_URL || !SUPABASE_KEY) return;
+    try {
+      const res = await fetch(SUPABASE_URL + '/rest/v1/' + SCORES_TABLE, {
+        method: 'POST',
+        headers: {
+          'apikey':        SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'Content-Type':  'application/json',
+          'Prefer':        'return=minimal',
+        },
+        body: JSON.stringify({ name, score }),
+      });
+      if (!res.ok) return;
+      fetchGlobalLeaderboard();
+    } catch (_) {}
+  }
+
+  // Kick off the network refresh after the cached strip is on screen.
+  fetchGlobalLeaderboard();
+
+  function qualifiesForLeaderboard(score) {
+    if (!isFinite(score) || score <= 0) return false;
+    if (leaderboard.length < LB_LIMIT) return true;
+    return score > leaderboard[leaderboard.length - 1].score;
+  }
+
+  function insertLeaderboardEntry(name, score) {
+    const clean = String(name || '')
+      .toUpperCase().replace(/[^A-Z0-9 ]/g, '').slice(0, 5).trim() || 'CAT';
+    leaderboard.push({ name: clean, score });
+    leaderboard.sort((a, b) => b.score - a.score);
+    leaderboard = leaderboard.slice(0, LB_LIMIT);
+    saveLeaderboardCache();
+    renderLeaderboard();
+  }
+
+  // ---- name-entry overlay wiring ----
+  const lbEntry      = document.getElementById('lb-entry');
+  const lbNameInput  = document.getElementById('lb-name-input');
+  const lbSubmitBtn  = document.getElementById('lb-submit');
+  let lbEntryActive  = false;
+
+  function showLbEntry() {
+    if (!lbEntry || !lbNameInput) return;
+    lbEntryActive = true;
+    lbEntry.classList.remove('hidden');
+    let lastName = '';
+    try { lastName = localStorage.getItem(LB_LASTNAME_KEY) || ''; } catch (_) {}
+    lbNameInput.value = lastName;
+    setTimeout(() => {
+      try { lbNameInput.focus(); lbNameInput.select(); } catch (_) {}
+    }, 50);
+  }
+
+  function submitLbEntry() {
+    if (!lbEntryActive) return;
+    const name = (lbNameInput && lbNameInput.value || '')
+      .toUpperCase().slice(0, 5).trim();
+    if (game.score > 0) {
+      const finalName = name || 'CAT';
+      insertLeaderboardEntry(finalName, game.score);
+      try { localStorage.setItem(LB_LASTNAME_KEY, finalName); } catch (_) {}
+      submitGlobalScore(finalName, game.score);
+    }
+    hideLbEntry();
+  }
+
+  function hideLbEntry() {
+    lbEntryActive = false;
+    if (lbEntry) lbEntry.classList.add('hidden');
+    // Move focus off any element inside the entry block so the global
+    // keydown handler picks up SPACE / R / ENTER for restart again.
+    const active = document.activeElement;
+    if (active && lbEntry && lbEntry.contains(active)) {
+      try { active.blur(); } catch (_) {}
+      try { canvas.focus(); } catch (_) {}
+    }
+  }
+
+  if (lbSubmitBtn) {
+    lbSubmitBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      submitLbEntry();
+    });
+  }
+  if (lbNameInput) {
+    lbNameInput.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitLbEntry();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        hideLbEntry();
+      }
+    });
+    lbNameInput.addEventListener('input', () => {
+      lbNameInput.value = lbNameInput.value.toUpperCase().slice(0, 5);
+    });
   }
 
   const TIMER_START = 200; // seconds — stage timer
@@ -163,6 +394,9 @@
       shootCooldown: 0,        // seconds until next fishbone is allowed
       prevShoot: false,        // edge-detect the shoot key
       lastStepAt: 0,           // animTimer of last step-puff spawn
+      pounding: false,         // currently slamming downward
+      poundLockout: 0,         // small grace window after a pound lands
+      prevDown: false,         // edge-detect the down key
     };
   }
 
@@ -185,11 +419,11 @@
   }
 
   // Enemy stats by type:
-  //   B = dog          — 24×18, walking patroller, ~1 px/frame
+  //   B = dog          — 26×20, walking patroller, ~1 px/frame
   //   D = child        — 24×12, slower crawl
   //   W = wasp         — 18×12, flies in a sine wave, can't be stomped
   const ENEMY_DIMS = {
-    B: { w: 24, h: 18, vx: -0.95, flying: false },
+    B: { w: 26, h: 20, vx: -0.95, flying: false },
     D: { w: 24, h: 12, vx: -0.55, flying: false },
     W: { w: 18, h: 12, vx: -1.6,  flying: true  },
   };
@@ -293,10 +527,11 @@
     game.flash = 0;
     game.deathTimer = 0;
     game.tempoBoosted = false;
+    hideLbEntry();
     loadLevel();
     game.mode = 'playing';
     Audio.musicTempo(1.0);
-    Audio.musicStart();
+    tryStartMusic();
   }
 
   function respawnPlayer() {
@@ -336,6 +571,11 @@
   }
 
   document.addEventListener('keydown', (e) => {
+    // While the high-score input is open and focused, let the input handle
+    // its own keys natively — don't pipe them into the game's key state.
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
+      return;
+    }
     setKey(e, true);
     Audio.resume();
 
@@ -362,31 +602,52 @@
         k === 's' || k === 'arrowdown'
       ) {
         game.mode = 'playing';
-        Audio.musicStart();
+        tryStartMusic();
         return;
       }
       // Other keys (e.g. modifiers) — ignore on the title screen.
       return;
     }
 
+    // Music toggle works in any mode.
+    if (k === 'm') { toggleMusic(); return; }
+
     if (game.mode === 'playing' && k === 'p') game.mode = 'paused';
     else if (game.mode === 'paused' && k === 'p') game.mode = 'playing';
     else if (
       (game.mode === 'dead' || game.mode === 'win') &&
-      (k === 'enter' || k === 'r' || k === ' ')
+      (k === 'enter' || k === 'r' || k === ' ') &&
+      !lbEntryActive          // don't restart while the player is typing a name
     ) {
       restart();
     }
   });
-  document.addEventListener('keyup', (e) => setKey(e, false));
+  document.addEventListener('keyup', (e) => {
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+    setKey(e, false);
+  });
 
   // Stop browser-default scroll when the canvas has focus and arrow keys are pressed.
   canvas.focus();
+
+  // Wire the music-toggle button on the page (clicking it shouldn't steal
+  // focus from the canvas — focus the canvas back after the click so the
+  // arrow keys keep working).
+  syncMusicButton();
+  const musicBtn = document.getElementById('music-toggle');
+  if (musicBtn) {
+    musicBtn.addEventListener('click', () => {
+      toggleMusic();
+      Audio.resume();              // first-click also unlocks the AudioContext
+      canvas.focus();
+    });
+  }
 
   function leftKey()  { return !!(keys['a'] || keys['arrowleft']); }
   function rightKey() { return !!(keys['d'] || keys['arrowright']); }
   function jumpKey()  { return !!(keys['w'] || keys['arrowup'] || keys[' ']); }
   function shootKey() { return !!(keys['x'] || keys['j']); }
+  function downKey()  { return !!(keys['s'] || keys['arrowdown']); }
 
   // ------ collision ----------------------------------------------------------
 
@@ -450,23 +711,43 @@
   function updatePlayer(dt) {
     const p = game.player;
 
-    // --- horizontal input + acceleration ---
-    if (leftKey()) {
-      p.vx -= MOVE_ACC;
-      p.facing = 'left';
+    // --- down-pounce input ---
+    // Detect a fresh down-press while airborne. Pounce locks horizontal
+    // input, snaps vy to a high downward speed, and gives a hard hit on
+    // contact with anything below — even wasps that would normally have to
+    // be shot.
+    if (p.poundLockout > 0) p.poundLockout = Math.max(0, p.poundLockout - dt);
+    const downPressed = downKey() && !p.prevDown;
+    p.prevDown = downKey();
+    if (downPressed && !p.onGround && !p.pounding && p.poundLockout === 0) {
+      p.pounding = true;
+      p.vy = POUND_VY;
+      p.vx = 0;
+      Audio.pound();
     }
-    if (rightKey()) {
-      p.vx += MOVE_ACC;
-      p.facing = 'right';
-    }
-    if (!leftKey() && !rightKey()) {
-      p.vx *= FRICTION;
-      if (Math.abs(p.vx) < 0.1) p.vx = 0;
-    }
-    if (p.vx > MAX_RUN) p.vx = MAX_RUN;
-    if (p.vx < -MAX_RUN) p.vx = -MAX_RUN;
 
-    // --- coyote time + jump buffer ---
+    // --- horizontal input + acceleration ---
+    // Pounce locks horizontal control until the cat lands.
+    if (!p.pounding) {
+      if (leftKey()) {
+        p.vx -= MOVE_ACC;
+        p.facing = 'left';
+      }
+      if (rightKey()) {
+        p.vx += MOVE_ACC;
+        p.facing = 'right';
+      }
+      if (!leftKey() && !rightKey()) {
+        p.vx *= FRICTION;
+        if (Math.abs(p.vx) < 0.1) p.vx = 0;
+      }
+      if (p.vx > MAX_RUN) p.vx = MAX_RUN;
+      if (p.vx < -MAX_RUN) p.vx = -MAX_RUN;
+    } else {
+      p.vx = 0;
+    }
+
+    // --- coyote time + jump buffer (no jumping during pounce) ---
     if (p.onGround) p.coyote = COYOTE_TIME;
     else p.coyote = Math.max(0, p.coyote - dt);
 
@@ -475,7 +756,7 @@
     else p.jumpBuffer = Math.max(0, p.jumpBuffer - dt);
     p.prevJump = jumpKey();
 
-    if (p.coyote > 0 && p.jumpBuffer > 0) {
+    if (!p.pounding && p.coyote > 0 && p.jumpBuffer > 0) {
       p.vy = -JUMP_VEL;
       p.onGround = false;
       p.coyote = 0;
@@ -484,15 +765,34 @@
     }
 
     // --- gravity (variable jump: lighter while ascending + jump held) ---
-    const ascending = p.vy < 0 && jumpKey();
-    p.vy += ascending ? ASCEND_GRAV : GRAVITY;
-    if (p.vy > MAX_FALL) p.vy = MAX_FALL;
+    if (p.pounding) {
+      // Pounce holds the slam speed; standard gravity would slow it.
+      p.vy = Math.max(p.vy, POUND_VY);
+    } else {
+      const ascending = p.vy < 0 && jumpKey();
+      p.vy += ascending ? ASCEND_GRAV : GRAVITY;
+      if (p.vy > MAX_FALL) p.vy = MAX_FALL;
+    }
 
     // --- collision ---
+    const wasPounding = p.pounding;
     p.onGround = false;
     const wasRising = p.vy < 0;
     moveX(p, p.vx);
     moveY(p, p.vy);
+
+    // --- pounce-landing detection ---
+    // If the cat was pouncing and just hit the ground, exit the state with
+    // a small bounce + dust burst. Lockout the down key briefly so a held
+    // key doesn't immediately re-trigger.
+    if (wasPounding && p.onGround) {
+      p.pounding = false;
+      p.poundLockout = POUND_LOCKOUT;
+      p.vy = POUND_BOUNCE_VY;
+      spawnPoundBurst(p);
+      Audio.poundLand();
+      game.flash = 0.06;
+    }
 
     // --- box hit detection ---
     // If the player was rising and just stopped (head bumped a ceiling),
@@ -579,6 +879,27 @@
       life: 0.32,
       alive: true,
     });
+  }
+
+  // A down-pounce hits the floor — fan out a small ring of dust particles
+  // so the impact has weight. Six pebbles, alternating left and right.
+  function spawnPoundBurst(p) {
+    const cx = p.x + p.w / 2;
+    const baseY = p.y + p.h - 2;
+    for (let i = 0; i < 6; i++) {
+      const dir = i % 2 === 0 ? -1 : 1;
+      const speed = 0.8 + Math.random() * 1.4;
+      game.particles.push({
+        kind: 'puff',
+        x: cx,
+        y: baseY,
+        vx: dir * speed,
+        vy: -0.6 - Math.random() * 1.2,
+        age: 0,
+        life: 0.5,
+        alive: true,
+      });
+    }
   }
 
   function updateParticles(dt) {
@@ -681,8 +1002,25 @@
       const er = { x: e.x, y: e.y, w: e.w, h: e.h };
       if (!rectOverlap(pr, er)) continue;
 
+      // Down-pounce: kills ANYTHING the cat lands on, including wasps.
+      // The pound bonus is 200 points (vs 100 for a normal stomp).
+      if (p.pounding) {
+        e.stomped = true;
+        e.stompTimer = 0;
+        e.y = e.y + e.h - 6;
+        e.h = 6;
+        p.vy = -10;             // bigger pound bounce
+        p.pounding = false;     // landing on an enemy ends the pounce too
+        p.poundLockout = POUND_LOCKOUT;
+        game.score += 200;
+        game.flash = 0.12;
+        Audio.stomp();
+        continue;
+      }
+
       // Wasps cannot be stomped — they sting from above. The player has to
-      // shoot them with a fishbone projectile (or just avoid them).
+      // shoot them with a fishbone projectile (or pounce them, handled
+      // above).
       if (e.flying) {
         hurtPlayer();
         continue;
@@ -744,6 +1082,10 @@
     game.deathTimer = 0;
     Audio.death();
     Audio.musicStop();
+    // Defer the high-score prompt by a beat so the death sting plays first.
+    if (qualifiesForLeaderboard(game.score)) {
+      setTimeout(showLbEntry, 700);
+    }
   }
 
   // ------ power-ups (cans + fish that pop out of boxes) ---------------------
@@ -945,6 +1287,9 @@
       game.score += game.timer * 5;
       Audio.win();
       Audio.musicStop();
+      if (qualifiesForLeaderboard(game.score)) {
+        setTimeout(showLbEntry, 800);
+      }
     }
   }
 
@@ -1323,7 +1668,7 @@
 
     ctx.font = '12px ui-monospace, monospace';
     ctx.fillStyle = '#84e36b';
-    ctx.fillText('In game: A/D or arrows to move · W/↑/Space to jump · X to shoot (when powered) · P to pause',
+    ctx.fillText('In game: A/D or arrows to move · W/↑/Space to jump · S/↓ to down-pounce · X to shoot · P to pause · M to mute music',
                  VIEW_W / 2, 432);
     ctx.restore();
   }

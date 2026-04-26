@@ -375,82 +375,125 @@
   // ---------------------------------------------------------------------------
 
   // ---------------------------------------------------------------------------
-  //  Dog — walking patroller, larger than a bug. Brown silhouette with
-  //  floppy ears, four legs, a perky tail, side-view facing right. Two-frame
-  //  walk cycle (front legs and back legs alternate). 24 × 18.
+  //  Dog — walking patroller. Two-tone tan + dark-brown coat (a beagle / mutt
+  //  silhouette), long muzzle that protrudes past the body line, drooping
+  //  ear with pink inside, a curled-up tail at the back, a black nose and
+  //  hanging tongue, plus a red-and-gold collar so it reads as a pet rather
+  //  than a feral animal. Four visible legs animate in a 2-frame walk
+  //  cycle (front-left + back-right swap with front-right + back-left).
+  //  26 × 20 — slightly bigger than the placeholder bug it replaces.
   // ---------------------------------------------------------------------------
 
   function drawDog(frame) {
-    const c = makeCanvas(24, 18);
+    const c = makeCanvas(26, 20);
     const ctx = c.getContext('2d');
-    const FUR  = '#8b5a2b';
-    const DARK = '#5a3a1a';
-    const LIGHT= '#c08a52';
-    const PINK = '#e7708a';
+    const TAN       = '#c08a52';
+    const TAN_LIGHT = '#dcae7a';
+    const DARK      = '#5a3a1a';
+    const DARK2     = '#3a2410';
+    const PINK      = '#e7708a';
+    const TONGUE    = '#cc4860';
+    const BLACK     = '#1a1014';
 
-    // body — long oval
-    ctx.fillStyle = FUR;
-    ctx.fillRect(3, 7, 14, 7);
-    ctx.fillRect(4, 6, 12, 1);
-    // belly underline
-    ctx.fillStyle = LIGHT;
-    ctx.fillRect(5, 12, 10, 2);
-
-    // tail (perky, up-and-back)
-    ctx.fillStyle = FUR;
-    ctx.fillRect(0, 4, 2, 3);
-    ctx.fillRect(2, 5, 2, 2);
-    ctx.fillRect(1, 6, 2, 1);
-
-    // head (right side)
-    ctx.fillStyle = FUR;
-    ctx.fillRect(15, 5, 7, 7);
-    ctx.fillRect(16, 4, 5, 1);
-    // muzzle
-    ctx.fillRect(20, 8, 3, 3);
-    // floppy ear
+    // ---- curled tail (drawn first so the body covers the root) ----
+    ctx.fillStyle = TAN;
+    ctx.fillRect(0, 7, 2, 3);
+    ctx.fillRect(1, 5, 3, 2);
+    ctx.fillRect(3, 5, 2, 4);
+    ctx.fillRect(2, 8, 2, 1);
+    // dark tip
     ctx.fillStyle = DARK;
-    ctx.fillRect(15, 4, 2, 4);
-    ctx.fillRect(16, 7, 1, 2);
+    ctx.fillRect(0, 6, 1, 2);
 
-    // eye
-    ctx.fillStyle = '#000';
-    ctx.fillRect(18, 7, 1, 2);
-    // eye glint
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(18, 7, 1, 1);
-    // nose
-    ctx.fillStyle = '#000';
-    ctx.fillRect(22, 8, 1, 1);
-    // tongue (just a hint)
+    // ---- body (long horizontal oval) ----
+    ctx.fillStyle = TAN;
+    ctx.fillRect(3, 9, 16, 6);
+    ctx.fillRect(4, 8, 14, 1);
+    ctx.fillRect(4, 15, 14, 1);
+    // big dark patch on the back — gives the dog real markings
+    ctx.fillStyle = DARK;
+    ctx.fillRect(7, 9, 6, 2);
+    ctx.fillRect(8, 8, 4, 1);
+    // small spot near the haunch
+    ctx.fillRect(15, 11, 2, 2);
+    // belly underline (lighter)
+    ctx.fillStyle = TAN_LIGHT;
+    ctx.fillRect(5, 13, 12, 2);
+
+    // ---- head (right side, slightly above body line) ----
+    ctx.fillStyle = TAN;
+    ctx.fillRect(17, 6, 7, 8);
+    ctx.fillRect(18, 5, 5, 1);
+    // long muzzle that sticks out past the body
+    ctx.fillRect(22, 10, 4, 3);
+    // muzzle lighter underneath (suggests the soft snout fur)
+    ctx.fillStyle = TAN_LIGHT;
+    ctx.fillRect(22, 11, 3, 2);
+
+    // ---- drooping ear (dark patch matching the body) ----
+    ctx.fillStyle = DARK;
+    ctx.fillRect(16, 5, 3, 6);
+    ctx.fillRect(15, 6, 1, 4);
+    ctx.fillRect(17, 11, 1, 1);
+    // pink ear interior
     ctx.fillStyle = PINK;
-    ctx.fillRect(21, 10, 1, 1);
+    ctx.fillRect(17, 7, 1, 3);
 
-    // legs — alternate frame
+    // ---- eye + brow ----
+    ctx.fillStyle = BLACK;
+    ctx.fillRect(20, 8, 1, 2);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(20, 8, 1, 1);     // eye glint
+    // nose
+    ctx.fillStyle = BLACK;
+    ctx.fillRect(25, 11, 1, 1);
+    ctx.fillRect(24, 10, 2, 1);
+    // mouth + tongue (hangs out a bit, very dog-like)
+    ctx.fillRect(22, 13, 2, 1);
+    ctx.fillStyle = TONGUE;
+    ctx.fillRect(23, 14, 1, 1);
+
+    // ---- collar (red band with gold tag) ----
+    ctx.fillStyle = '#cc2929';
+    ctx.fillRect(17, 13, 1, 2);
+    ctx.fillRect(16, 13, 1, 1);
+    ctx.fillStyle = '#ffd166';
+    ctx.fillRect(17, 14, 1, 1);
+
+    // ---- legs (walk-cycle, 4 visible) ----
     ctx.fillStyle = DARK;
     if (frame === 0) {
-      ctx.fillRect(4, 14, 2, 4);    // front-left forward
-      ctx.fillRect(8, 14, 2, 3);
-      ctx.fillRect(12, 14, 2, 3);
-      ctx.fillRect(15, 14, 2, 4);
+      // front-left + back-right forward
+      ctx.fillRect(4, 16, 2, 4);
+      ctx.fillRect(7, 16, 2, 3);
+      ctx.fillRect(13, 16, 2, 3);
+      ctx.fillRect(16, 16, 2, 4);
     } else {
-      ctx.fillRect(5, 14, 2, 3);
-      ctx.fillRect(7, 14, 2, 4);    // back-left
-      ctx.fillRect(13, 14, 2, 4);
-      ctx.fillRect(15, 14, 2, 3);
+      // front-right + back-left forward
+      ctx.fillRect(5, 16, 2, 3);
+      ctx.fillRect(7, 16, 2, 4);
+      ctx.fillRect(13, 16, 2, 4);
+      ctx.fillRect(16, 16, 2, 3);
     }
+    // paw highlights (lighter underside)
+    ctx.fillStyle = DARK2;
+    ctx.fillRect(4, 19, 2, 1);
+    ctx.fillRect(16, 19, 2, 1);
+
     return c;
   }
 
   function drawDogSquashed() {
-    const c = makeCanvas(24, 8);
+    const c = makeCanvas(26, 8);
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#8b5a2b';
-    ctx.fillRect(2, 3, 20, 5);
-    ctx.fillStyle = '#5a3a1a';
-    ctx.fillRect(2, 7, 20, 1);
     ctx.fillStyle = '#c08a52';
-    ctx.fillRect(5, 4, 14, 1);
+    ctx.fillRect(2, 3, 22, 5);
+    ctx.fillStyle = '#5a3a1a';
+    ctx.fillRect(2, 7, 22, 1);
+    ctx.fillRect(8, 4, 5, 2);       // back-patch flattened
+    ctx.fillStyle = '#dcae7a';
+    ctx.fillRect(5, 4, 3, 1);
+    ctx.fillRect(14, 4, 8, 1);
     // ear flop
     ctx.fillRect(2, 2, 3, 1);
     return c;

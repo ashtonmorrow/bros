@@ -139,6 +139,16 @@
       tone({ freq: 880, type: 'square', dur: 0.06, vol: 0.13, slide: -240 });
     },
 
+    // The cat enters down-pounce — fast descending whoosh.
+    pound() {
+      tone({ freq: 660, type: 'sawtooth', dur: 0.18, vol: 0.16, slide: -460 });
+    },
+
+    // Pound impact on the ground — heavy thump.
+    poundLand() {
+      tone({ freq: 110, type: 'square', dur: 0.10, vol: 0.20, slide: -50 });
+    },
+
     // Background music — chiptune-style 4-bar loop synthesised in Web Audio.
     // Two voices: a square-wave melody arpeggiating an I–V–vi–IV chord
     // progression in C, and a triangle-wave bass on the chord roots.
