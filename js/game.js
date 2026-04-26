@@ -390,6 +390,9 @@
     flash: 0,               // brief screen flash on stomp (cosmetic)
     shakeT: 0,              // remaining shake duration in seconds
     shakeAmp: 0,            // shake amplitude in pixels
+    dyingT: 0,              // time spent in 'dying' mode
+    dyingKind: null,        // 'final' (game over) | 'pit' (lose-a-life respawn)
+    respawnFadeT: 0,        // black-fade-out timer after respawning at start
     deathTimer: 0,
   };
 
@@ -582,6 +585,11 @@
     game.levelTime = 0;
     game.cameraX = 0;
     game.flash = 0;
+    game.shakeT = 0;
+    game.shakeAmp = 0;
+    game.dyingT = 0;
+    game.dyingKind = null;
+    game.respawnFadeT = 0;
     game.deathTimer = 0;
     game.tempoBoosted = false;
     hideLbEntry();
@@ -1178,24 +1186,94 @@
     p.invuln = 1.5;
   }
 
-  function pitDeath() {
-    game.lives--;
-    if (game.lives <= 0) {
-      gameOver();
-    } else {
-      Audio.hurt();
-      respawnPlayer();
+  // Transition to the brief 'dying' phase. Two flavours:
+  //   'pit'   — lost a life from a pit fall, will respawn at start.
+  //             Short fade-to-black so the snap doesn't feel like a glitch.
+  //   'final' — out of lives. The cat tumbles up off-screen, the music
+  //             stops, the screen darkens, then the game-over panel
+  //             appears. Gives the death weight instead of an instant cut.
+  function startDying(kind) {
+    game.mode = 'dying';
+    game.dyingT = 0;
+    game.dyingKind = kind;
+    if (kind === 'final' && game.player) {
+      // Tumble: pop the cat upward, give it a small horizontal kick, then
+      // gravity takes over. The render path uses the 'hurt' sprite for the
+      // duration so the cat reads as dead-not-dazed.
+      game.player.vy = -10;
+      game.player.vx = (Math.random() < 0.5 ? -1 : 1) * (1.5 + Math.random());
+      game.player.invuln = 999;        // can't be hurt again mid-tumble
+      game.player.pounding = false;
     }
   }
 
+  function pitDeath() {
+    game.lives--;
+    if (game.lives <= 0) {
+      Audio.death();
+      Audio.musicStop();
+      startDying('final');
+      return;
+    }
+    Audio.hurt();
+    startDying('pit');
+  }
+
+  // Final-death entry from non-pit causes (timer ran out — only path that
+  // currently routes here, since enemy hits at zero lives also end up here
+  // via hurtPlayer → game.lives--).
   function gameOver() {
-    game.mode = 'dead';
-    game.deathTimer = 0;
     Audio.death();
     Audio.musicStop();
-    // Defer the high-score prompt by a beat so the death sting plays first.
-    if (qualifiesForLeaderboard(game.score)) {
-      setTimeout(showLbEntry, 700);
+    startDying('final');
+  }
+
+  // Tick the dying mode forward. Final death tumbles the cat under gravity
+  // off-screen and decays cosmetic timers; pit death just counts down to
+  // the respawn fade. Both transition out at the end.
+  function updateDying(dt) {
+    game.dyingT += dt;
+
+    if (game.dyingKind === 'final' && game.player) {
+      // Free-fall the cat through tiles (no collision) so the tumble
+      // sells "yeah, the cat is gone" rather than the cat awkwardly
+      // landing on something.
+      const p = game.player;
+      p.vy += GRAVITY;
+      if (p.vy > MAX_FALL) p.vy = MAX_FALL;
+      p.x += p.vx;
+      p.y += p.vy;
+    }
+
+    // Cosmetic timer decay — flash + shake should fade naturally.
+    if (game.flash > 0)  game.flash  = Math.max(0, game.flash  - dt);
+    if (game.shakeT > 0) {
+      game.shakeT = Math.max(0, game.shakeT - dt);
+      if (game.shakeT === 0) game.shakeAmp = 0;
+    }
+    for (const par of game.particles) {
+      if (!par.alive) continue;
+      par.age += dt;
+      if (par.age >= par.life) par.alive = false;
+    }
+
+    // Transition out after the configured beat.
+    const FINAL_DUR = 1.6;
+    const PIT_DUR   = 0.7;
+    const dur = game.dyingKind === 'final' ? FINAL_DUR : PIT_DUR;
+    if (game.dyingT >= dur) {
+      if (game.dyingKind === 'final') {
+        game.mode = 'dead';
+        game.deathTimer = 0;
+        if (qualifiesForLeaderboard(game.score)) {
+          setTimeout(showLbEntry, 400);
+        }
+      } else {
+        // Pit respawn — teleport, set the fade-back-in timer, resume play.
+        respawnPlayer();
+        game.respawnFadeT = 0.35;
+        game.mode = 'playing';
+      }
     }
   }
 
@@ -1435,6 +1513,13 @@
       updateParticles(dt);
       updateCamera();
       checkGoal();
+
+      // Respawn fade-out (after a pit teleport) decays during play.
+      if (game.respawnFadeT > 0) {
+        game.respawnFadeT = Math.max(0, game.respawnFadeT - dt);
+      }
+    } else if (game.mode === 'dying') {
+      updateDying(dt);
     }
   }
 
@@ -1608,15 +1693,22 @@
 
   function drawPlayer() {
     const p = game.player;
-    if (p.invuln > 0 && Math.floor(p.invuln * 12) % 2 === 0) return; // blink
+    // Hide the cat during pit-dying (it has fallen below the world and there
+    // is nothing to render).
+    if (game.mode === 'dying' && game.dyingKind === 'pit') return;
+    // Skip the invuln-blink during the final-death tumble so the cat stays
+    // continuously visible while it spins out.
+    const isDying = game.mode === 'dying' && game.dyingKind === 'final';
+    if (!isDying && p.invuln > 0 && Math.floor(p.invuln * 12) % 2 === 0) return;
     // Pick the sprite set matching the current power state. small / big are
     // baked at different scales (1.7x vs 2.2x) and on different canvas sizes.
     const set = Sprites.cats[selectedCat][p.power];
     let sprite;
-    if (p.state === 'jump') sprite = set.jump;
-    else if (p.state === 'fall') sprite = set.fall;
-    else if (p.state === 'run') sprite = p.animFrame === 0 ? set.run0 : set.run1;
-    else sprite = set.idle;
+    if (isDying)                  sprite = set.hurt;
+    else if (p.state === 'jump')  sprite = set.jump;
+    else if (p.state === 'fall')  sprite = set.fall;
+    else if (p.state === 'run')   sprite = p.animFrame === 0 ? set.run0 : set.run1;
+    else                          sprite = set.idle;
     // Centre the sprite horizontally on the hitbox; align the bottom of the
     // sprite (where the cat's paws are) with the bottom of the hitbox.
     const dims = POWER[p.power];
@@ -1954,6 +2046,41 @@
     drawPlayer();
     drawFlash();
     ctx.restore();
+
+    // Death-and-respawn fades. Drawn over the world but UNDER the HUD so
+    // the score / lives counter stay legible while the world goes dark.
+    if (game.mode === 'dying') {
+      let alpha = 0;
+      if (game.dyingKind === 'final') {
+        // Linear fade up to 70% over the full tumble.
+        alpha = Math.min(0.7, (game.dyingT / 1.6) * 0.7);
+      } else {
+        // Pit: fade fast to mostly-black before the teleport.
+        alpha = Math.min(1, game.dyingT / 0.35);
+      }
+      ctx.fillStyle = `rgba(8, 6, 16, ${alpha})`;
+      ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+      // "OOF!" / death text on the final tumble.
+      if (game.dyingKind === 'final' && game.dyingT > 0.4) {
+        const titleA = Math.min(1, (game.dyingT - 0.4) / 0.4);
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = 'bold 48px ui-monospace, monospace';
+        ctx.fillStyle = `rgba(0, 0, 0, ${titleA})`;
+        ctx.fillText('YOU DIED', VIEW_W / 2 + 3, VIEW_H / 2 + 3);
+        ctx.fillStyle = `rgba(255, 107, 107, ${titleA})`;
+        ctx.fillText('YOU DIED', VIEW_W / 2, VIEW_H / 2);
+        ctx.restore();
+      }
+    }
+    if (game.respawnFadeT > 0) {
+      // Fade-out from black after a pit respawn.
+      const a = game.respawnFadeT / 0.35;
+      ctx.fillStyle = `rgba(8, 6, 16, ${a})`;
+      ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    }
 
     drawHUD();
 
