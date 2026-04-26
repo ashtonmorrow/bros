@@ -2,23 +2,39 @@
 
 > A free browser side-scrolling cat platformer. Pick from four cat palettes
 > and bound through a 240-tile hand-built level on the way to a cozy bed.
-> Stomp bugs, collect treats and yarn balls, reach the goal. Single
-> self-contained folder of vanilla HTML, CSS, and JavaScript with no build
-> step or install required.
+> Cat-food boxes power you up, magic fish unlock fishbone projectiles, you
+> can stomp dogs and crawling kids — wasps you have to shoot or down-pounce.
+> Vanilla HTML / CSS / JavaScript with no build step or install required;
+> Web Audio synthesised soundtrack; global high-score leaderboard.
 
 Pounce is an open-source browser game in the same family as
 [cat-ski](https://ski.mike-lee.me/) — same author, same vanilla stack, same
 plain-prose voice. Four selectable cat palettes (black, tabby, calico,
 orange) with vector cat sprites shared with cat-ski. Hand-built tile level
 structured around the four-act kishōtenketsu framework (intro → development
-→ twist → conclusion). Web Audio API synthesised sound effects, no audio
-files. HTML5 Canvas with image-rendering: pixelated for crisp pixel art.
-Hosted on Vercel, source on GitHub.
+→ twist → conclusion) and the six 2D-platformer level patterns (Guidance,
+Foreshadowing, Safe Zone, Layering, Branching, Pace Breaking).
+
+The cat starts small and weak. Hitting a red `?`-style box pops a cat-food
+can; eating it makes the cat big (one extra hit absorbed). Hitting a box
+while big pops a magic fish; eating it grants the shooter state and the
+ability to fire fishbone projectiles with the X key. Three obstacle animals
+oppose: the dog (walking), the crawling small child (short, slow), and the
+flying wasp — wasps cannot be stomped, only shot or down-pounced. Down-pounce
+is a Mario-3-style ground-pound: in-air S or ↓ snaps the cat into a fast
+straight-down slam that one-shots anything below, including wasps, for a
++200 score bonus.
+
+Backed by Supabase for a global top-3 leaderboard, with a localStorage cache
+so the strip paints instantly. Web Audio synthesised soundtrack (chiptune
+I–V–vi–IV in C, 132 BPM) with a panic-mode tempo speedup at the last 30
+seconds; M key toggles music. Installable as a Progressive Web App with an
+offline service worker. Hosted on Vercel, source on GitHub.
 
 ## Pages
 
 - [Play Pounce](https://pounce.mike-lee.me/): The game itself. Loads in any
-  modern browser. Desktop only at this stage; mobile is on the roadmap.
+  modern browser. Desktop primary; mobile is on the roadmap.
 - [Building Pounce, a Browser Cat Platformer](https://pounce.mike-lee.me/readme.html):
   A walkthrough article covering the tile-based level architecture, the
   four-act kishōtenketsu pacing applied to the level, the vector cat sprites
@@ -29,12 +45,16 @@ Hosted on Vercel, source on GitHub.
 - Author: Mike Lee (Whisker Leaks)
 - LinkedIn: https://www.linkedin.com/in/mikelee89/
 - Source code: https://github.com/ashtonmorrow/bros
-- Sister project: [cat-ski](https://github.com/ashtonmorrow/cat-ski) (same
-  author, four cat palettes shared between projects)
+- Sister projects: [cat-ski](https://ski.mike-lee.me/),
+  [pear](https://pear.mike-lee.me/),
+  [go](https://go.mike-lee.me/) — all by the same author at
+  [mike-lee.me](https://mike-lee.me/)
 - License: open source (see repository)
-- Stack: vanilla HTML, CSS, and JavaScript; HTML5 Canvas; Web Audio API; no
-  build step; no framework; no runtime dependencies
+- Stack: vanilla HTML, CSS, and JavaScript; HTML5 Canvas; Web Audio API;
+  Supabase for the global leaderboard; no build step; no framework; no
+  runtime dependencies beyond Google Fonts
 - Hosting: Vercel, deployed automatically from the GitHub repository on push
+- PWA: installable on iOS, Android, and desktop
 
 ## Optional
 

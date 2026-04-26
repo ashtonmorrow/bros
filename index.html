@@ -9,6 +9,12 @@
   <link rel="canonical" href="https://pounce.mike-lee.me/">
   <meta name="theme-color" content="#1a1a2e">
 
+  <!-- PWA manifest (makes the game installable to home screen) -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Pounce">
+
   <!-- Favicons -->
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="icon" type="image/png" sizes="16x16"   href="/favicon-16.png">
@@ -87,10 +93,14 @@
         <button id="music-toggle" class="bezel-link bezel-button"
                 type="button" aria-pressed="true"
                 title="Toggle music (M)">&#9834; ON</button>
+        <a href="https://pear.mike-lee.me/" class="bezel-link"
+           target="_blank" rel="noopener noreferrer">PEAR</a>
+        <a href="https://ski.mike-lee.me/" class="bezel-link"
+           target="_blank" rel="noopener noreferrer">SKI</a>
+        <a href="https://go.mike-lee.me/" class="bezel-link"
+           target="_blank" rel="noopener noreferrer">GO</a>
         <a href="https://github.com/ashtonmorrow/bros" class="bezel-link"
            target="_blank" rel="noopener noreferrer">SOURCE</a>
-        <a href="https://ski.mike-lee.me/" class="bezel-link"
-           target="_blank" rel="noopener noreferrer">CAT-SKI</a>
       </span>
     </div>
 
@@ -131,5 +141,15 @@
   <script src="js/audio.js"></script>
   <script src="js/level.js"></script>
   <script src="js/game.js"></script>
+
+  <!-- Service worker: PWA installability + offline cache. Skipped on
+       file:// because the SW spec requires http(s). -->
+  <script>
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
+    }
+  </script>
 </body>
 </html>

@@ -191,20 +191,27 @@
   <h2 id="about">About Pounce</h2>
 
   <p>Pounce is a free browser side-scrolling platformer. The player picks one
-    of four cats and bounds through a hand-built tile level on the way to a
-    cozy bed. Stomp the bugs, collect treats and yarn balls, reach the goal.
-    The whole thing runs in vanilla HTML, CSS, and JavaScript on top of an
-    HTML5 Canvas, with sound effects synthesised at runtime from the Web Audio
-    API. There is no build step and no runtime dependency.</p>
+    of four cats and bounds through a 240-tile hand-built level on the way to
+    a cozy bed. Bonk red boxes for cat-food cans (grow bigger) or magic fish
+    (unlock fishbone projectiles), stomp dogs and crawling kids, shoot or
+    pounce the wasps that fly above. Vanilla HTML, CSS, and JavaScript on
+    top of an HTML5 Canvas with Web Audio for both sound effects and a
+    chiptune music loop. No build step, no framework, no runtime dependency
+    beyond Google Fonts and Supabase for the global high-score leaderboard.</p>
 
   <p>The project shares its DNA with
-    <a href="https://ski.mike-lee.me/">cat-ski</a>: same author, same plain-prose
-    voice, same free deploy toolchain (GitHub &rarr; Vercel), same four cat
-    palettes. Source is at
+    <a href="https://ski.mike-lee.me/">cat-ski</a>: same author, same
+    plain-prose voice, same free deploy toolchain (GitHub &rarr; Vercel),
+    same four cat palettes. Source is at
     <a href="https://github.com/ashtonmorrow/bros">github.com/ashtonmorrow/bros</a>.
-    Pounce is a placeholder repository name from the early prototype days; the
-    public name of the game is Pounce, and the production URL is
-    <code>pounce.mike-lee.me</code>.</p>
+    The production URL is <code>pounce.mike-lee.me</code>.</p>
+
+  <p>Pounce sits alongside the other small browser experiments at
+    <a href="https://mike-lee.me/">mike-lee.me</a>:
+    <a href="https://ski.mike-lee.me/">cat-ski</a> (a SkiFree tribute),
+    <a href="https://pear.mike-lee.me/">pear</a>, and
+    <a href="https://go.mike-lee.me/">go</a>. They all share the same vanilla
+    stack and ship-on-push deploy pattern.</p>
 
   <h2 id="play">How to play</h2>
 
@@ -221,18 +228,43 @@
     <tbody>
       <tr><td>A / D or Left / Right</td><td>Move</td></tr>
       <tr><td>W, Up Arrow, or Space</td><td>Jump</td></tr>
+      <tr><td>S or Down Arrow (in mid-air)</td><td>Down-pounce — fast slam, instant kill on impact</td></tr>
+      <tr><td>X</td><td>Throw a fishbone (only in shooter state, after eating a magic fish)</td></tr>
       <tr><td>P</td><td>Pause</td></tr>
-      <tr><td>R or Enter</td><td>Restart after a game over or win</td></tr>
+      <tr><td>M</td><td>Toggle music on / off (also a bezel button)</td></tr>
+      <tr><td>R, Enter, or Space</td><td>Restart after a game over or win</td></tr>
       <tr><td>Left / Right (title screen)</td><td>Cycle the cat picker</td></tr>
       <tr><td>Click a swatch (title screen)</td><td>Select that cat directly</td></tr>
     </tbody>
   </table>
 
-  <p>The score increases with collected treats (10 each) and yarn balls
-    (50 each), with a stomp bonus (100) for landing on top of an enemy and a
-    time bonus on the level-complete screen. A bug or dust bunny that catches
-    the cat from the side costs a life; pits cost a life and respawn the cat at
-    the start. The cat starts with three lives. Run out and the game ends.</p>
+  <p>The cat starts <em>small</em>. Bonking a red <code>?</code>-style box from
+    below pops a cat-food can; eating it grows the cat to <em>big</em>, which
+    absorbs one extra hit before death. Bonking another box while big pops a
+    magic fish; eating it grants the <em>shooter</em> state and the X-key
+    fishbone projectile that arcs, bounces off the floor up to four times, and
+    one-shots any enemy on contact. Hits revert the cat all the way back to
+    small, Mario-style.</p>
+
+  <p>Three obstacle animals oppose the cat. <strong>Dogs</strong> walk and
+    patrol the ground, can be stomped from above or shot. <strong>Crawling
+    children</strong> are shorter and slower; their hitbox is low enough that
+    a normal jump usually clears them. <strong>Wasps</strong> fly in a sine
+    wave and cannot be stomped from a regular jump — you have to either shoot
+    them with a fishbone or come down on them with a down-pounce. Down-pounce
+    one-shots <em>anything</em>, even wasps, and pays out 200 points instead of
+    the standard 100 stomp bonus.</p>
+
+  <p>Score adds up across treats (10 each), yarn balls (50 each), pop-up cans
+    (100), magic fish (500), stomps (100), pound-stomps (200), and projectile
+    kills (200). Time bonus on the level-complete screen at 5 points per
+    second remaining. A pit fall costs a life and respawns the cat at the
+    start; the cat starts with three lives.</p>
+
+  <p>The top three high scores are global, backed by a Supabase table with
+    a localStorage cache so the strip paints instantly even before the
+    network has responded. If your final score cracks the top three, a
+    five-character name prompt appears.</p>
 
   <h2 id="build">How the game is built</h2>
 
@@ -254,10 +286,14 @@
       <tr><td>Physics</td><td>Per-axis tilemap collision; gravity 0.5 px / frame²</td></tr>
       <tr><td>Variable jump</td><td>Reduced gravity (0.275) while ascending and jump is held</td></tr>
       <tr><td>Forgiveness</td><td>0.10 s coyote time, 0.10 s jump buffer</td></tr>
+      <tr><td>Down-pounce</td><td>vy snaps to 14 (faster than gravity terminal velocity), vx locked to 0; instant kill on impact, +200 score</td></tr>
       <tr><td>World sprites</td><td>Procedural pixel art via <code>ctx.fillRect</code></td></tr>
-      <tr><td>Cat sprites</td><td>Vector primitives, four palettes shared with cat-ski</td></tr>
-      <tr><td>Audio</td><td>Web Audio API, all sounds synthesised at runtime</td></tr>
-      <tr><td>State persistence</td><td><code>localStorage</code> for the selected cat</td></tr>
+      <tr><td>Cat sprites</td><td>Vector primitives, four palettes shared with cat-ski; small &amp; big size sets baked at startup</td></tr>
+      <tr><td>SFX</td><td>Web Audio API, OscillatorNode tones</td></tr>
+      <tr><td>Music</td><td>Web Audio chiptune loop — square-wave melody + triangle bass over an I&ndash;V&ndash;vi&ndash;IV progression in C, 132 BPM, 4 bars; 1.4&times; panic-mode tempo at the last 30 seconds</td></tr>
+      <tr><td>Leaderboard</td><td>Supabase (anon key, RLS-protected) for the global top-3; localStorage cache so the strip paints instantly</td></tr>
+      <tr><td>State persistence</td><td><code>localStorage</code> for selected cat, music preference, leaderboard cache, last-used name</td></tr>
+      <tr><td>PWA</td><td><code>manifest.json</code> + <code>sw.js</code>; network-first for HTML, cache-first for assets, bumped <code>CACHE_NAME</code> on each release</td></tr>
       <tr><td>Hosting</td><td>Vercel, deployed from GitHub on push</td></tr>
     </tbody>
   </table>
@@ -393,8 +429,13 @@
   <footer>
     <p>Author: <a href="https://www.linkedin.com/in/mikelee89/">Mike Lee</a>
        &middot; Source on <a href="https://github.com/ashtonmorrow/bros">GitHub</a>
-       &middot; Sister project: <a href="https://ski.mike-lee.me/">cat-ski</a>
        &middot; <a href="/">Play Pounce</a>
+    </p>
+    <p>Sister projects:
+       <a href="https://ski.mike-lee.me/">cat-ski</a> &middot;
+       <a href="https://pear.mike-lee.me/">pear</a> &middot;
+       <a href="https://go.mike-lee.me/">go</a> &middot;
+       <a href="https://mike-lee.me/">mike-lee.me</a>
     </p>
   </footer>
 </main>

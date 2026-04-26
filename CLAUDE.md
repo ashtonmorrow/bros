@@ -98,13 +98,43 @@ Author block, used in both:
   of the six 2D level patterns each section uses.
 - `js/game.js` — engine, physics, collisions, camera, HUD, screen states.
 
-## Phase plan (as of this writing)
+## Phase plan (current state)
+
+All three phases shipped. Open work is at the polish / mobile / new-content
+layer.
 
 1. **Phase 1 — done.** 240-tile level applying kishōtenketsu pacing,
    non-overlapping staircases, four-cat picker.
-2. **Phase 2 — in progress.** Pounce rename, README + readme.html, JSON-LD
-   schema, left-edge wall, cat-shaped HUD lives icon.
-3. **Phase 3 — next.** Red boxes with cat-food cans (Mario `?`-block style:
-   power up the cat, sometimes powers down). Rare boxes contain a fish that
-   gives the cat a projectile (shoot to kill enemies). New enemies: dog,
-   crawling small child, flying wasp. Branding pass after.
+2. **Phase 2 — done.** Pounce rename, README + readme.html, JSON-LD
+   schema, left-edge wall, cat-shaped HUD lives icon, bezel chrome,
+   responsive canvas sizing, favicon set.
+3. **Phase 3 — done.** Cat-food power-up boxes (`Q` tile; small → big →
+   shooter state machine, Mario-style), magic fish in big-state boxes
+   granting fishbone projectile (X to shoot, 4-bounce arc, one-shot kill),
+   three obstacle animals (dog walking, crawling child, flying wasp that
+   can't be stomped), cozy autumn-sunset palette pass.
+4. **Polish round — done.** Music loop (square + triangle, I-V-vi-IV in C,
+   132 BPM, panic-mode tempo speedup), step-puff dust particles + body bob
+   for run animation, hidden sky-route at row 3 cols 137-150, denser
+   collectible trails over every pit (12 → 75 collectibles).
+5. **Phase 4 — done.** Music on/off toggle (M key + bezel button), global
+   top-3 leaderboard via Supabase + localStorage cache, redrawn dog sprite
+   (real-dog tan/brown two-tone with ear, snout, collar, tongue), down-pounce
+   ability (in-air ↓ slams instant-killing including wasps).
+6. **Site infrastructure — done.** PWA manifest + service worker, robots.txt,
+   sitemap.xml, preview.png placeholder OG card, cross-links in bezel to
+   sister projects (pear, ski, go).
+
+## Open work
+
+- **Real preview.png.** The placeholder is a sunset-gradient with the cat
+  silhouette and a wordmark. A real screenshot of the game in motion would
+  read better as an OG card.
+- **Supabase `pounce_scores` table.** The leaderboard runs locally without
+  it; create the table (`id` int8 identity, `created_at` timestamptz,
+  `name` varchar, `score` int8) with RLS allowing anon SELECT and INSERT to
+  enable cross-device global scoring.
+- **Mobile / touch controls.** Currently desktop-only. Cat-ski has a
+  joystick + buttons that appear on touch devices; same pattern would work.
+- **More levels.** The engine supports arbitrary maps; the shipped level is
+  one. World-2 onwards is mostly authoring.

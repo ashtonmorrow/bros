@@ -1,12 +1,16 @@
 # Pounce
 
-A free browser side-scroller. Play as a cat — pick from four palettes —
-bounding through a hand-built tile level on the way to a cozy bed. Stomp bugs,
-collect treats and yarn balls, reach the goal. Vanilla HTML / Canvas / Web
-Audio. No build step. Sister project of
-[cat-ski](https://github.com/ashtonmorrow/cat-ski).
+A free browser side-scrolling cat platformer. Pick from four cat palettes
+and bound through a 240-tile hand-built level on the way to a cozy bed.
+Cat-food boxes power you up, magic fish unlock a fishbone projectile, dogs
+and crawling kids can be stomped, wasps have to be shot or down-pounced.
+Vanilla HTML / CSS / JavaScript with Canvas + Web Audio. No build step.
 
 Production URL (planned): https://pounce.mike-lee.me/
+
+Sister projects (all on the same stack): [cat-ski](https://ski.mike-lee.me/),
+[pear](https://pear.mike-lee.me/), [go](https://go.mike-lee.me/) — see
+[mike-lee.me](https://mike-lee.me/) for the home page.
 
 ## Quick start
 
@@ -16,23 +20,46 @@ There is no build step. Any way of serving the folder over HTTP works:
     python3 -m http.server 8000
     # then open http://localhost:8000/
 
-The game is also playable directly from the filesystem (`open index.html`)
-because nothing is loaded across origins.
+The game is also playable from the filesystem (`open index.html`) because
+nothing is loaded across origins. The PWA service worker only registers
+under http(s) so file:// loads skip it.
 
 ## Controls
 
-| Action  | Keys                            |
-| ------- | ------------------------------- |
-| Move    | A / D or Left / Right           |
-| Jump    | W, Up Arrow, or Space           |
-| Pause   | P                               |
-| Restart | R or Enter (after game over / win) |
+| Action  | Keys                                         |
+| ------- | -------------------------------------------- |
+| Move    | A / D or Left / Right                        |
+| Jump    | W, Up Arrow, or Space                        |
+| Down-pounce | S or Down Arrow (in mid-air only)        |
+| Shoot fishbone | X (only when in shooter state)        |
+| Pause   | P                                            |
+| Restart | R, Enter, or Space (after game-over / win)   |
+| Mute music | M (also a button in the page chrome)      |
 
 On the title screen, four cat swatches let you pick which cat to play as
-(SHADOW, WHISKERS, PATCHES, GINGER). Use Left / Right or A / D to cycle, click
-a swatch to select directly, or press Space / W / Up / Enter to start with the
-current selection. The choice persists in `localStorage` under the key
-`pounce_cat`.
+(SHADOW, WHISKERS, PATCHES, GINGER). Use Left / Right or A / D to cycle,
+click to pick, then Space / W / Up / Enter to start. The choice persists
+across sessions in `localStorage` under `pounce_cat`.
+
+## Mechanics in brief
+
+- **Power state.** The cat starts `small`. Bonking a red `?`-style box pops
+  a cat-food can; eating it grows the cat to `big` (absorbs one hit before
+  dying). Bonking another box while big pops a magic fish; eating it grants
+  the `shooter` state. Hits revert the cat to small Mario-style.
+- **Fishbone projectile.** In shooter state, X fires a 12×8 spinning
+  fishbone in the facing direction. Cooldown ~0.32 s. Bounces off the floor
+  up to four times. One-shots any enemy on contact.
+- **Down-pounce.** While in mid-air, pressing S or ↓ slams the cat straight
+  down at 14 px/frame (faster than max-fall). Locks horizontal control.
+  Lands instant kills on any enemy — including wasps, which are otherwise
+  immune to stomping. +200 points (vs +100 for a regular stomp).
+- **Enemies.** Dogs walk and patrol, can be stomped or shot or pounced.
+  Crawling kids are shorter and slower (low-arc jump clears them). Wasps
+  fly in a sine wave and can't be stomped — only shot or pounced.
+- **Leaderboard.** Top-three global high scores via Supabase, with a
+  localStorage cache so the strip paints instantly. On level-complete or
+  game-over, scoring high enough prompts for a 5-character name.
 
 ## File structure
 
@@ -40,11 +67,18 @@ current selection. The choice persists in `localStorage` under the key
     ├── index.html        Entry point — canvas + script loads
     ├── readme.html       Long-form article version of this README
     ├── style.css         Page chrome
+    ├── manifest.json     PWA manifest
+    ├── sw.js             Service worker (offline cache + install)
+    ├── robots.txt        SEO — allow all + sitemap pointer
+    ├── sitemap.xml       SEO — / and /readme.html
+    ├── llms.txt          AI-discovery summary
+    ├── preview.png       OG / Twitter card image (1200×630)
     ├── README.md         This file
     ├── CLAUDE.md         Project context for Claude (writing voice, conventions)
+    ├── favicon*.png/.ico, apple-touch-icon.png, icon-{192,512}.png
     └── js/
         ├── sprites.js    Pixel-art tiles + four vector cats
-        ├── audio.js      Web Audio synthesised SFX
+        ├── audio.js      Web Audio synthesised SFX + music loop
         ├── level.js      ASCII tilemap built programmatically
         └── game.js       Engine: physics, collisions, camera, HUD, states
 
@@ -52,7 +86,8 @@ current selection. The choice persists in `localStorage` under the key
 
 `js/level.js` is a builder, not a hand-typed grid. Each function (`ground`,
 `plat`, `ent`) writes one feature into a 240 × 15 char array, which is then
-exported as `LEVEL` (an array of length-240 strings) for `game.js` to consume.
+exported as `LEVEL` (an array of length-240 strings) for `game.js` to
+consume.
 
 Tile legend:
 
@@ -60,12 +95,15 @@ Tile legend:
     #   ground top (grass)
     =   underground (dirt)
     -   floating wooden platform
+    Q   power-up box (cat food → big, or magic fish if already big)
+    @   used / popped box (cosmetic, set by game.js when a Q is bonked)
     P   player start
     G   goal (cozy bed)
     F   fish treat   (+10)
     Y   yarn ball    (+50)
-    B   bug enemy    (small fast patroller)
-    D   dust bunny   (slow patroller)
+    B   dog          (walking patroller, stompable)
+    D   crawling child (short, slow patroller, stompable)
+    W   wasp         (flying, can't be stomped — shoot or down-pounce)
 
 The level is structured around the four-act kishōtenketsu framework
 (intro → development → twist → conclusion) and annotated section-by-section
@@ -75,64 +113,70 @@ full breakdown.
 
 ## How the engine works
 
-| Component        | Implementation                                        |
-| ---------------- | ----------------------------------------------------- |
-| Rendering        | HTML5 Canvas, 800 × 480, image-rendering: pixelated   |
-| Game loop        | Vanilla JS, requestAnimationFrame                     |
-| Physics          | Per-axis tilemap collision; gravity 0.5 px / frame²   |
-| Variable jump    | Reduced gravity (0.275) while ascending + jump held   |
-| Forgiveness      | 0.10 s coyote time + 0.10 s jump buffer               |
-| Cat sprites      | Vector primitives, four palettes from the cat-ski drawCat |
-| Other sprites    | Procedural pixel art (`fillRect`)                     |
-| Audio            | Web Audio API; OscillatorNode tones, no audio files   |
-| State persistence| `localStorage` for selected cat                       |
-| Hosting          | Vercel, deployed from the GitHub repo on push         |
-
-The cat is symmetric (front-facing), so it doesn't flip when you change
-direction. That tradeoff is intentional: the vector geometry doesn't survive
-a horizontal flip cleanly (markings and patches mirror), and a chibi
-forward-facing cat reads correctly to the player without it.
+| Component        | Implementation                                               |
+| ---------------- | ------------------------------------------------------------ |
+| Rendering        | HTML5 Canvas, 800 × 480, image-rendering: pixelated          |
+| Game loop        | Vanilla JS, requestAnimationFrame, dt clamped to 50 ms       |
+| Physics          | Per-axis tilemap collision; gravity 0.5 px / frame²          |
+| Variable jump    | Reduced gravity (0.275) while ascending + jump held          |
+| Forgiveness      | 0.10 s coyote time + 0.10 s jump buffer                      |
+| Down-pounce      | vy snaps to 14, vx locked to 0; insta-kill on impact         |
+| Cat sprites      | Vector primitives, four palettes shared with cat-ski; small / big size sets |
+| Other sprites    | Procedural pixel art (`fillRect`)                            |
+| Audio            | Web Audio API; OscillatorNode tones + 4-bar music loop        |
+| Leaderboard      | Supabase REST (anon-keyed, RLS) + localStorage cache          |
+| State persistence| `localStorage` for selected cat, music pref, leaderboard cache, last name |
+| Hosting          | Vercel, deployed from GitHub on push                         |
+| PWA              | manifest.json + sw.js (network-first HTML, cache-first assets) |
 
 ## Asset / license note
 
 Everything in this folder is original or generated procedurally:
 
-- **Cat sprites** — drawn with vector primitives in `js/sprites.js`. Code and
+- **Cat sprites** drawn with vector primitives in `js/sprites.js`. Code and
   the four palettes (black, tabby, calico, orange) are shared with cat-ski,
-  which is the same author. No external imagery.
-- **World sprites** — every other sprite (bugs, dust bunnies, yarn ball, fish
-  treat, bed, grass, dirt, platform, cloud) is pixel-art drawn with `fillRect`
-  calls.
-- **Sound effects** — synthesised at runtime from `OscillatorNode`s in
+  same author.
+- **World sprites** — every other sprite (dog, child, wasp, yarn, fish,
+  power-up box, cat-food can, magic fish, fishbone projectile, bed, grass,
+  dirt, platform, cloud) is pixel-art drawn with `fillRect`.
+- **Sound effects** synthesised at runtime from `OscillatorNode`s in
   `js/audio.js`. No audio files are loaded.
-- **Music** — none.
-- **Fonts** — only the user agent's default monospace stack.
+- **Music** — synthesised in `js/audio.js` (square-wave melody + triangle
+  bass over an I–V–vi–IV progression in C, 132 BPM, 4-bar loop).
+- **Fonts** — Google Fonts: `Press Start 2P` for the bezel chrome, `VT323`
+  for the controls hint. Otherwise the user agent's default monospace.
 
 No third-party game art, names, music, level layouts, or enemy designs were
-used. The level was hand-authored to teach controls similarly to a classic
-8-bit first stage but the layout, geometry, and enemies are original.
+used.
 
 You can freely modify, redistribute, and reuse everything in this folder
 under the MIT License if you want a formal one — otherwise consider it
 CC0/public domain.
 
+## Setting up the global leaderboard
+
+The code points at the same Supabase project as cat-ski with a different
+table name. To wire it up, create a `pounce_scores` table in your Supabase
+project with the schema:
+
+    id          int8 primary key generated by default as identity
+    created_at  timestamptz default now()
+    name        varchar
+    score       int8
+
+Enable Row Level Security and add two policies for the `anon` role: a
+`select` policy (`true`) for fetching the top-3, and an `insert` policy
+(`true`) for submitting. Until the table exists, the leaderboard runs purely
+off `localStorage` — works fine for one device, just no cross-device sync.
+
 ## Roadmap
 
-The current build is the platforming foundation. Planned next:
+The current build closes Phase 3 + the polish round. Open ideas:
 
-- **Power-up boxes.** Red `?`-style blocks that pop a can of cat food when hit
-  from below. Most cans buff (extra hit absorbed before death); some debuff
-  (shrink the cat). Rare boxes contain a fish that gives the cat a projectile.
-- **Projectile combat.** When powered, the cat can throw fishbones to kill
-  enemies at range. Cooldown between shots.
-- **New enemies.** Replace the bug / dust bunny placeholders with three real
-  obstacle animals: dog (walking), small child (crawling, low-arc jump
-  required to clear), and wasp (flying, can't be stomped — must be shot).
-- **Branding pass.** Palette + tile re-art to match a Pounce visual identity
-  rather than the placeholder green-grass-and-blue-sky we have now.
-- **PWA.** `manifest.json` + `sw.js` so the game is installable for offline
-  play, like cat-ski.
-
-Sister project: [cat-ski](https://github.com/ashtonmorrow/cat-ski) — same
-author, same stack, same writing voice. See `CLAUDE.md` for the project's
-voice and convention notes.
+- **Mobile / touch controls.** Currently desktop-only; add an on-screen
+  joystick + jump/pounce/shoot buttons that appear on touch devices, like
+  cat-ski does.
+- **More levels.** The engine + level builder support arbitrary maps; the
+  shipped level is one. World-2-style follow-up is doable.
+- **Music variations.** One loop right now; could expand to per-act variants
+  that fade between sections.
