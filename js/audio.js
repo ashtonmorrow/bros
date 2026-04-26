@@ -51,12 +51,22 @@
     });
   }
 
+  // Sound-effects on/off. Gated separately from music so the player can mute
+  // one without losing the other. The game UI persists the preference; this
+  // module just respects it. setSfxEnabled() is the public hook.
+  let sfxOn = true;
+
   global.Audio = {
     // First-keypress hook to unlock the AudioContext on browsers that suspend it.
     resume() {
       const c = getCtx();
       if (c && c.state === 'suspended') c.resume();
     },
+
+    // Independent SFX mute. Music toggle lives in game.js because the music
+    // state machine is more involved (start/stop, tempo, panic mode).
+    setSfxEnabled(on) { sfxOn = !!on; },
+    isSfxEnabled() { return sfxOn; },
 
     jump() {
       tone({ freq: 360, type: 'square', dur: 0.18, vol: 0.14, slide: 280 });
@@ -160,6 +170,22 @@
     /** Multiplier on the base tempo (1.0 default, 1.4 for the last-30-s panic). */
     musicTempo(mul) { _music.tempoMul = mul; },
   };
+
+  // Gate every SFX entry-point on `sfxOn`. Done as a post-process here so
+  // the actual SFX function bodies above stay short and obvious — adding a
+  // new SFX is just a new method, no extra gating boilerplate. resume(),
+  // setSfxEnabled / isSfxEnabled, and the music* methods are exempt.
+  const SFX_KEYS = [
+    'jump','collect','stomp','hurt','win','death','coin',
+    'boxHit','powerUp','powerDown','shoot','pound','poundLand',
+  ];
+  for (const k of SFX_KEYS) {
+    const orig = global.Audio[k];
+    global.Audio[k] = function () {
+      if (!sfxOn) return;
+      return orig.apply(this, arguments);
+    };
+  }
 
   // ---- music engine, internal --------------------------------------------
   const TEMPO_BPM_BASE = 132;

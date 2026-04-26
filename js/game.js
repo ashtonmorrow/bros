@@ -109,6 +109,34 @@
     if (musicEnabled) Audio.musicStart();
   }
 
+  // Sound-effects on/off — independent of music. Persists across sessions
+  // under `pounce_sfx`; default ON. The actual gating happens in audio.js
+  // (every SFX entry-point checks the flag); we just track the preference
+  // here, sync the button, and forward the new value via setSfxEnabled.
+  const SFX_STORAGE_KEY = 'pounce_sfx';
+  let sfxEnabled = true;
+  try {
+    const saved = localStorage.getItem(SFX_STORAGE_KEY);
+    if (saved === '0') sfxEnabled = false;
+  } catch (e) {}
+  function persistSfxPref() {
+    try { localStorage.setItem(SFX_STORAGE_KEY, sfxEnabled ? '1' : '0'); } catch (e) {}
+  }
+  function syncSfxButton() {
+    const btn = document.getElementById('sfx-toggle');
+    if (!btn) return;
+    btn.textContent = sfxEnabled ? 'FX ON' : 'FX OFF';
+    btn.setAttribute('aria-pressed', sfxEnabled ? 'true' : 'false');
+  }
+  function toggleSfx() {
+    sfxEnabled = !sfxEnabled;
+    persistSfxPref();
+    syncSfxButton();
+    Audio.setSfxEnabled(sfxEnabled);
+  }
+  // Apply the saved preference at boot so the gate matches the visual state.
+  Audio.setSfxEnabled(sfxEnabled);
+
   // -------------------------------------------------------------------------
   //  TOP-3 LEADERBOARD — global, Supabase-backed (cat-ski's pattern)
   // -------------------------------------------------------------------------
@@ -609,8 +637,9 @@
       return;
     }
 
-    // Music toggle works in any mode.
+    // Music + SFX toggles work in any mode.
     if (k === 'm') { toggleMusic(); return; }
+    if (k === 'n') { toggleSfx();   return; }
 
     if (game.mode === 'playing' && k === 'p') game.mode = 'paused';
     else if (game.mode === 'paused' && k === 'p') game.mode = 'playing';
@@ -639,6 +668,16 @@
     musicBtn.addEventListener('click', () => {
       toggleMusic();
       Audio.resume();              // first-click also unlocks the AudioContext
+      canvas.focus();
+    });
+  }
+
+  syncSfxButton();
+  const sfxBtn = document.getElementById('sfx-toggle');
+  if (sfxBtn) {
+    sfxBtn.addEventListener('click', () => {
+      toggleSfx();
+      Audio.resume();
       canvas.focus();
     });
   }
@@ -1668,7 +1707,7 @@
 
     ctx.font = '12px ui-monospace, monospace';
     ctx.fillStyle = '#84e36b';
-    ctx.fillText('In game: A/D or arrows to move · W/↑/Space to jump · S/↓ to down-pounce · X to shoot · P to pause · M to mute music',
+    ctx.fillText('A/D or arrows to move · W/↑/Space to jump · S/↓ to down-pounce · X to shoot · P pause · M music · N FX',
                  VIEW_W / 2, 432);
     ctx.restore();
   }
