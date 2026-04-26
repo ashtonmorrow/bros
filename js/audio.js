@@ -107,5 +107,142 @@
       tone({ freq: 988, type: 'square', dur: 0.05, vol: 0.16 });
       setTimeout(() => tone({ freq: 1318, type: 'square', dur: 0.10, vol: 0.16 }), 50);
     },
+
+    // Player head-bumps a power-up box from below.
+    boxHit() {
+      tone({ freq: 220, type: 'square', dur: 0.06, vol: 0.18 });
+      setTimeout(() => tone({ freq: 165, type: 'square', dur: 0.08, vol: 0.16 }), 30);
+    },
+
+    // The cat eats a cat-food can and grows.
+    powerUp() {
+      sequence(
+        [
+          { freq: 523 },
+          { freq: 659 },
+          { freq: 784 },
+          { freq: 1046 },
+          { freq: 1318 },
+        ],
+        { type: 'square', dur: 0.10, vol: 0.17, gap: 70 }
+      );
+    },
+
+    // The cat is hit while big — shrinks back down (descending pair).
+    powerDown() {
+      tone({ freq: 740, type: 'square', dur: 0.10, vol: 0.18 });
+      setTimeout(() => tone({ freq: 494, type: 'square', dur: 0.16, vol: 0.18, slide: -120 }), 90);
+    },
+
+    // Background music — chiptune-style 4-bar loop synthesised in Web Audio.
+    // Two voices: a square-wave melody arpeggiating an I–V–vi–IV chord
+    // progression in C, and a triangle-wave bass on the chord roots.
+    // Schedules one full cycle at a time and re-schedules just before the
+    // current one ends. Cheap (~48 oscillators per 7-second loop) and gives
+    // the level a "real game" pulse with no audio files.
+    musicStart() { _music.start(); },
+    musicStop()  { _music.stop();  },
+    /** Multiplier on the base tempo (1.0 default, 1.4 for the last-30-s panic). */
+    musicTempo(mul) { _music.tempoMul = mul; },
+  };
+
+  // ---- music engine, internal --------------------------------------------
+  const TEMPO_BPM_BASE = 132;
+  const NOTE_TO_SEMI = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  function noteFreq(note) {
+    // 'C5', 'F#4' etc → Hz. MIDI: C4 = 60, A4 = 69 = 440 Hz.
+    const m = note.match(/^([A-G])(#|b)?(-?\d)$/);
+    if (!m) return 440;
+    let semi = NOTE_TO_SEMI[m[1]];
+    if (m[2] === '#') semi += 1;
+    if (m[2] === 'b') semi -= 1;
+    const oct = parseInt(m[3], 10);
+    const midi = (oct + 1) * 12 + semi;
+    return 440 * Math.pow(2, (midi - 69) / 12);
+  }
+
+  // I–V–vi–IV in C, four bars at 4/4, eight 8th-notes per bar of melody,
+  // four quarter-notes per bar of bass.
+  const MELODY = [
+    // C: arpeggio C5 E5 G5 E5 (×2)
+    ['C5', 0.5], ['E5', 0.5], ['G5', 0.5], ['E5', 0.5],
+    ['C5', 0.5], ['E5', 0.5], ['G5', 0.5], ['E5', 0.5],
+    // G: G4 B4 D5 B4 (×2)
+    ['G4', 0.5], ['B4', 0.5], ['D5', 0.5], ['B4', 0.5],
+    ['G4', 0.5], ['B4', 0.5], ['D5', 0.5], ['B4', 0.5],
+    // Am: A4 C5 E5 C5 (×2)
+    ['A4', 0.5], ['C5', 0.5], ['E5', 0.5], ['C5', 0.5],
+    ['A4', 0.5], ['C5', 0.5], ['E5', 0.5], ['C5', 0.5],
+    // F: F4 A4 C5 A4 then a small turnaround on the last beat
+    ['F4', 0.5], ['A4', 0.5], ['C5', 0.5], ['A4', 0.5],
+    ['F4', 0.5], ['A4', 0.5], ['G4', 0.5], ['E4', 0.5],
+  ];
+  const BASS = [
+    ['C3', 1], ['G3', 1], ['C3', 1], ['G3', 1],
+    ['G2', 1], ['D3', 1], ['G2', 1], ['D3', 1],
+    ['A2', 1], ['E3', 1], ['A2', 1], ['E3', 1],
+    ['F2', 1], ['C3', 1], ['F2', 1], ['C3', 1],
+  ];
+
+  function playSequence(seq, startTime, beatDur, type, vol) {
+    const c = getCtx();
+    if (!c) return startTime;
+    let t = startTime;
+    for (const [note, beats] of seq) {
+      const dur = beats * beatDur;
+      const osc = c.createOscillator();
+      const gain = c.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(noteFreq(note), t);
+      // Quick attack, soft tail. Stops a hair before the next note to give
+      // the square wave a tiny pulse separation rather than a slur.
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.linearRampToValueAtTime(vol, t + 0.005);
+      gain.gain.linearRampToValueAtTime(vol * 0.85, t + dur * 0.6);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + dur * 0.95);
+      osc.connect(gain);
+      gain.connect(c.destination);
+      osc.start(t);
+      osc.stop(t + dur + 0.02);
+      t += dur;
+    }
+    return t;
+  }
+
+  const _music = {
+    playing: false,
+    tempoMul: 1.0,
+    nextLoopAt: 0,
+    timerId: null,
+
+    start() {
+      if (this.playing) return;
+      const c = getCtx();
+      if (!c) return;
+      this.playing = true;
+      this.nextLoopAt = c.currentTime + 0.1;
+      this._scheduleLoop();
+    },
+
+    stop() {
+      this.playing = false;
+      if (this.timerId) { clearTimeout(this.timerId); this.timerId = null; }
+      // Outstanding scheduled oscillators will still play out their tails;
+      // that's preferable to a sudden cut.
+    },
+
+    _scheduleLoop() {
+      if (!this.playing) return;
+      const c = getCtx();
+      if (!c) return;
+      const beatDur = 60 / (TEMPO_BPM_BASE * this.tempoMul);
+      const start = Math.max(c.currentTime + 0.02, this.nextLoopAt);
+      playSequence(MELODY, start, beatDur, 'square', 0.05);
+      playSequence(BASS,   start, beatDur, 'triangle', 0.08);
+      const loopDur = 16 * beatDur;          // 4 bars × 4 beats
+      this.nextLoopAt = start + loopDur;
+      // Re-schedule a touch before this loop ends so notes don't gap.
+      this.timerId = setTimeout(() => this._scheduleLoop(), (loopDur - 0.15) * 1000);
+    },
   };
 })(window);

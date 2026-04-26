@@ -50,6 +50,8 @@
  *   '#'  ground top (grass)
  *   '='  underground (dirt)
  *   '-'  floating wooden platform
+ *   'Q'  cat-food box (solid; head-bump from below pops a can; +200 / grow)
+ *   '@'  used / popped box (solid; cosmetic — placed by game.js, not by you)
  *   'P'  player start
  *   'G'  goal (cozy bed)
  *   'F'  fish treat   (+10)
@@ -94,48 +96,83 @@
    * ------------------------------------------------------------------------ */
 
   // Tutorial flat. No enemies. Treats laid out in a curve to teach "go right".
+  // First cat-food box sits over the trail so the player has a chance to bonk
+  // it from below and learn the mechanic in safety.
   ground(0, 16);
   ent(1, 11, 'P');
   ent(8,  11, 'F');
   ent(11, 11, 'F');
   ent(13, 11, 'F');
+  ent(10, 8, 'Q');                   // first power-up box (cat food)
 
-  // Pit #1 — 3 wide, easy first jump (cols 16–18).
+  // Pit #1 — 3 wide, easy first jump (cols 16–18). Treat arc above the pit
+  // (Guidance) traces the natural jump arc and rewards clearing it.
+  ent(16, 9, 'F');
+  ent(17, 8, 'F');
+  ent(18, 9, 'F');
   ground(19, 11);
+  ent(22, 11, 'F');
   ent(24, 11, 'F');
+  ent(26, 11, 'F');
 
-  // Pit #2 — 3 wide (cols 30–32). Repeat the lesson.
+  // Pit #2 — 3 wide (cols 30–32). Repeat the lesson with another arc.
+  ent(30, 9, 'F');
+  ent(31, 8, 'F');
+  ent(32, 9, 'F');
   ground(33, 17);
   ent(40, 11, 'B');                  // first enemy — slow, on a long flat
   // Branching: optional high path with a bonus yarn ball.
   plat(38, 7, 5);
   ent(40, 6, 'Y');
   ent(45, 11, 'F');
+  ent(47, 11, 'F');
 
 
   /* ------------------------------------------------------------------------
    *  ACT 2 — DEVELOPMENT  (cols 50–114)
    * ------------------------------------------------------------------------ */
 
-  // Pit #3 — 4 wide (cols 50–53).
+  // Pit #3 — 4 wide (cols 50–53). Wider arc.
+  ent(50, 9, 'F');
+  ent(51, 8, 'F');
+  ent(52, 8, 'F');
+  ent(53, 9, 'F');
   ground(54, 12);
+  ent(57, 11, 'F');
   ent(58, 11, 'D');                  // dust bunny — slower, easier to stomp
+  ent(61, 11, 'F');
   ent(63, 11, 'F');
+  ent(65, 11, 'F');
 
-  // Pit #4 — 4 wide (cols 66–69).
+  // Pit #4 — 4 wide (cols 66–69). Arc.
+  ent(66, 9, 'F');
+  ent(67, 8, 'F');
+  ent(68, 8, 'F');
+  ent(69, 9, 'F');
   // Layering showcase: ground + mid platform + high platform with yarn ball.
+  // A cat-food box on the bottom layer rewards a head-bump as the player
+  // navigates around the bug.
   ground(70, 17);
+  ent(71, 11, 'F');
   ent(73, 11, 'F');
+  ent(82, 11, 'F');
   ent(83, 11, 'F');
   plat(74, 8, 5);                    // mid ledge
+  ent(72, 8, 'Q');                   // second power-up box, just left of the mid ledge
   ent(76, 7, 'F');
   plat(76, 5, 4);                    // top ledge
   ent(77, 4, 'Y');
   ent(80, 11, 'B');
 
-  // Pit #5 — 5 wide (cols 87–91).
+  // Pit #5 — 5 wide (cols 87–91). Bigger arc, four treats.
+  ent(87, 9, 'F');
+  ent(88, 8, 'F');
+  ent(90, 8, 'F');
+  ent(91, 9, 'F');
   ground(92, 11);
+  ent(94, 11, 'F');
   ent(95, 11, 'D');
+  ent(99, 11, 'F');
   ent(100, 11, 'B');
 
   // Pit #6 — 5 wide (cols 103–107) with a single mid-air stepping stone
@@ -186,11 +223,17 @@
   ent(169, 6, 'Y');                  // peak yarn — reward for the climb
   // Drop-off past col 170 — player falls down to ground level.
 
-  // Drop-zone ground (cols 170–184).
+  // Drop-zone ground (cols 170–184). Box here rewards getting through the
+  // hardest pit + tower section. A small cluster of treats welcomes the cat
+  // back to flat ground.
   ground(170, 15);
+  ent(171, 11, 'F');
   ent(174, 11, 'F');
+  ent(176, 8, 'Q');                  // Act 3 reward box
   ent(178, 11, 'B');
+  ent(181, 11, 'F');
   ent(182, 11, 'F');
+  ent(184, 11, 'F');
 
 
   /* ------------------------------------------------------------------------
@@ -198,16 +241,26 @@
    * ------------------------------------------------------------------------ */
 
   // Pace-breaker: wide, enemy-free flat (Safe Zone). Lots of treats — payoff
-  // for surviving Act 3, and visual "calm before the goal".
+  // for surviving Act 3, and visual "calm before the goal". A pair of boxes
+  // here gives a final chance to grab cat food before the goal staircase.
   ground(185, 18);
   ent(190, 11, 'F');
+  ent(192, 8, 'Q');                  // Act 4 box (pair)
   ent(194, 11, 'F');
+  ent(196, 8, 'Q');
   ent(198, 11, 'F');
   ent(201, 11, 'F');
 
   // Final pit — 4 wide (cols 203–206). Deliberately easy after the lull.
+  // One last treat arc leads to the goal.
+  ent(203, 9, 'F');
+  ent(204, 8, 'F');
+  ent(205, 8, 'F');
+  ent(206, 9, 'F');
   ground(207, 14);
+  ent(209, 11, 'F');
   ent(210, 11, 'D');                 // single enemy back-to-final
+  ent(212, 11, 'F');
   ent(214, 11, 'F');
   // Bonus: a high yarn ball above the final stretch.
   plat(215, 7, 4);

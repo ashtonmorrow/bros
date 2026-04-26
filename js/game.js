@@ -39,14 +39,16 @@
   const COYOTE_TIME = 0.10;
   const JUMP_BUFFER = 0.10;
 
-  const PLAYER_W = 20;
-  const PLAYER_H = 22;
-  // Cat sprite is 56×48 (vector cat baked into a canvas) — much bigger than
-  // the hitbox; we draw it offset so the cat's paws sit on the hitbox bottom.
-  const PLAYER_SPRITE_W = 56;
-  const PLAYER_SPRITE_H = 48;
-  const SPRITE_OFFSET_X = (PLAYER_SPRITE_W - PLAYER_W) / 2;   // 18
-  const SPRITE_OFFSET_Y = PLAYER_SPRITE_H - PLAYER_H;         // 26 (paws to feet)
+  // Hitbox dims per power state. Sprites in sprites.js are baked at matching
+  // sizes (small: 56×48, big: 72×64). When the cat eats cat food, we swap
+  // both the sprite set and the hitbox.
+  const POWER = {
+    small: { w: 20, h: 22, spriteW: 56, spriteH: 48 },
+    big:   { w: 22, h: 28, spriteW: 72, spriteH: 64 },
+  };
+  // Default sizes (small). Used by entity factories before the player powers up.
+  const PLAYER_W = POWER.small.w;
+  const PLAYER_H = POWER.small.h;
 
   // Which cat palette is selected. Persisted across sessions in localStorage.
   // Defaults to 'tabby'.
@@ -96,6 +98,7 @@
     goal: null,
     enemies: [],
     items: [],
+    powerUps: [],           // cans / fish that have popped out of boxes
     flash: 0,               // brief screen flash on stomp (cosmetic)
     deathTimer: 0,
   };
@@ -111,7 +114,8 @@
   }
 
   function isSolidChar(c) {
-    return c === '#' || c === '=' || c === '-';
+    // ground (#), dirt (=), platform (-), unused box (Q), used box (@)
+    return c === '#' || c === '=' || c === '-' || c === 'Q' || c === '@';
   }
 
   function tileAt(col, row) {
@@ -128,8 +132,8 @@
     return {
       x: px,
       y: py,
-      w: PLAYER_W,
-      h: PLAYER_H,
+      w: POWER.small.w,
+      h: POWER.small.h,
       vx: 0,
       vy: 0,
       onGround: false,
@@ -141,7 +145,29 @@
       coyote: 0,
       jumpBuffer: 0,
       prevJump: false,
+      // Power state machine. 'small' = default; 'big' = ate cat food, takes
+      // an extra hit before dying. Sprite + hitbox swap on transition.
+      power: 'small',
+      powerXfade: 0,           // brief visual pulse during grow / shrink
     };
+  }
+
+  // Switch the player's size in place. The hitbox bottom stays anchored to
+  // its current position (so feet stay on the same surface) and the head
+  // moves up/down to fit the new height. We don't try to resolve clipping at
+  // the new size — the next physics frame will push the player out of any
+  // tile they overlap.
+  function setPlayerPower(newPower) {
+    const p = game.player;
+    if (p.power === newPower) return;
+    const oldH = p.h;
+    const newDims = POWER[newPower];
+    p.power = newPower;
+    p.w = newDims.w;
+    // Anchor the feet: shift y so y + h stays the same.
+    p.y = (p.y + oldH) - newDims.h;
+    p.h = newDims.h;
+    p.powerXfade = 0.4;
   }
 
   function makeEnemy(type, px, py) {
@@ -169,6 +195,7 @@
 
     game.enemies = [];
     game.items = [];
+    game.powerUps = [];
     game.totalCollectibles = 0;
     game.goal = null;
 
@@ -230,8 +257,11 @@
     game.cameraX = 0;
     game.flash = 0;
     game.deathTimer = 0;
+    game.tempoBoosted = false;
     loadLevel();
     game.mode = 'playing';
+    Audio.musicTempo(1.0);
+    Audio.musicStart();
   }
 
   function respawnPlayer() {
@@ -291,6 +321,7 @@
         k === 's' || k === 'arrowdown'
       ) {
         game.mode = 'playing';
+        Audio.musicStart();
         return;
       }
       // Other keys (e.g. modifiers) — ignore on the title screen.
@@ -417,8 +448,27 @@
 
     // --- collision ---
     p.onGround = false;
+    const wasRising = p.vy < 0;
     moveX(p, p.vx);
     moveY(p, p.vy);
+
+    // --- box hit detection ---
+    // If the player was rising and just stopped (head bumped a ceiling),
+    // check whether the bumped tile is a Q (cat-food box). If so, turn it
+    // into '@' (used) and spawn a popping cat-food can above it.
+    if (wasRising && p.vy === 0) {
+      const bumpedRow = Math.floor((p.y - 1) / TILE);
+      const left = Math.floor(p.x / TILE);
+      const right = Math.floor((p.x + p.w - 1) / TILE);
+      for (let x = left; x <= right; x++) {
+        if (tileAt(x, bumpedRow) === 'Q') {
+          tiles[bumpedRow][x] = '@';
+          spawnCatFood(x, bumpedRow);
+          Audio.boxHit();
+          break;                  // pop only one box per frame
+        }
+      }
+    }
 
     // --- world boundaries ---
     // Left edge: an invisible wall at x=0 so the cat can't leave the level
@@ -534,6 +584,13 @@
 
   function hurtPlayer() {
     const p = game.player;
+    // If the cat is powered up (big), shrink to small instead of dying.
+    if (p.power === 'big') {
+      setPlayerPower('small');
+      p.invuln = 1.5;
+      Audio.powerDown();
+      return;
+    }
     game.lives--;
     Audio.hurt();
     if (game.lives <= 0) {
@@ -560,12 +617,89 @@
     game.mode = 'dead';
     game.deathTimer = 0;
     Audio.death();
+    Audio.musicStop();
+  }
+
+  // ------ power-ups (cans + fish that pop out of boxes) ---------------------
+  // Pop a cat-food can out of a Q box that just got bonked. The can rises
+  // out of the box for ~0.4 s, then becomes a walking item that obeys gravity
+  // and bounces off walls (Mario-style mushroom).
+  function spawnCatFood(col, row) {
+    game.powerUps.push({
+      kind: 'food',
+      // 14×16 sprite, centred on the 32-wide tile.
+      x: col * TILE + (TILE - 14) / 2,
+      y: row * TILE,             // starts inside the box
+      w: 14, h: 16,
+      vx: 0,
+      vy: -1.6,                  // emerges upward
+      dirX: 1,                   // walking direction once it lands
+      state: 'rising',
+      riseRemaining: 18,         // px of rise before becoming a walker
+      alive: true,
+    });
+  }
+
+  function updatePowerUps(dt) {
+    const p = game.player;
+    for (const item of game.powerUps) {
+      if (!item.alive) continue;
+
+      if (item.state === 'rising') {
+        // Free-floating rise; skip tile collision so the can emerges through
+        // the (now used) box without bonking it.
+        item.y += item.vy;
+        item.riseRemaining += item.vy;
+        if (item.riseRemaining <= 0) {
+          item.state = 'walking';
+          item.vy = 0;
+          item.vx = item.dirX * 1.4;
+        }
+      } else {
+        // Walking: gravity + horizontal patrol with wall-bounce.
+        item.vy += GRAVITY;
+        if (item.vy > MAX_FALL) item.vy = MAX_FALL;
+        const hitX = moveX(item, item.dirX * 1.4);
+        if (hitX) item.dirX *= -1;
+        moveY(item, item.vy);
+      }
+
+      // Despawn if it falls off the world.
+      if (item.y > WORLD_H + 64) item.alive = false;
+
+      // Player pickup
+      const ir = { x: item.x, y: item.y, w: item.w, h: item.h };
+      if (rectOverlap({ x: p.x, y: p.y, w: p.w, h: p.h }, ir)) {
+        item.alive = false;
+        eatCatFood();
+      }
+    }
+    // Garbage-collect dead entries occasionally so the array doesn't grow.
+    if (game.powerUps.length > 16) {
+      game.powerUps = game.powerUps.filter(i => i.alive);
+    }
+  }
+
+  function eatCatFood() {
+    const p = game.player;
+    if (p.power === 'small') {
+      setPlayerPower('big');
+      game.score += 200;
+      Audio.powerUp();
+    } else {
+      // Already big — just a score bonus.
+      game.score += 100;
+      Audio.collect();
+    }
   }
 
   // ------ items / camera / win check ----------------------------------------
   function updateItems(dt) {
     for (const item of game.items) item.bob += dt * 3;
     if (game.flash > 0) game.flash = Math.max(0, game.flash - dt);
+    if (game.player && game.player.powerXfade > 0) {
+      game.player.powerXfade = Math.max(0, game.player.powerXfade - dt);
+    }
   }
 
   function updateCamera() {
@@ -584,6 +718,7 @@
       game.mode = 'win';
       game.score += game.timer * 5;
       Audio.win();
+      Audio.musicStop();
     }
   }
 
@@ -598,8 +733,15 @@
         return;
       }
 
+      // Panic-mode music speedup at the last 30 seconds (one-shot).
+      if (game.timer < 30 && !game.tempoBoosted) {
+        Audio.musicTempo(1.4);
+        game.tempoBoosted = true;
+      }
+
       updatePlayer(dt);
       updateEnemies(dt);
+      updatePowerUps(dt);
       updateCollisions(dt);
       updateItems(dt);
       updateCamera();
@@ -667,6 +809,8 @@
     const camX = Math.floor(game.cameraX);
     const startCol = Math.max(0, Math.floor(camX / TILE));
     const endCol = Math.min(W - 1, Math.ceil((camX + VIEW_W) / TILE));
+    // Slow bobble between the two box-idle frames so unused boxes feel alive.
+    const boxFrame = Math.floor(performance.now() / 400) % 2;
     for (let y = 0; y < H; y++) {
       for (let x = startCol; x <= endCol; x++) {
         const c = tiles[y][x];
@@ -676,6 +820,8 @@
         if (c === '#') ctx.drawImage(Sprites.grass, sx, sy);
         else if (c === '=') ctx.drawImage(Sprites.dirt, sx, sy);
         else if (c === '-') ctx.drawImage(Sprites.platform, sx, sy);
+        else if (c === 'Q') ctx.drawImage(boxFrame === 0 ? Sprites.box.idle0 : Sprites.box.idle1, sx, sy);
+        else if (c === '@') ctx.drawImage(Sprites.box.used, sx, sy);
       }
     }
   }
@@ -698,6 +844,17 @@
     }
   }
 
+  function drawPowerUps() {
+    const camX = Math.floor(game.cameraX);
+    for (const item of game.powerUps) {
+      if (!item.alive) continue;
+      // For now there's only the cat-food can. Fish projectile-grant boxes
+      // come in the next phase.
+      const sprite = Sprites.catFoodCan;
+      ctx.drawImage(sprite, Math.floor(item.x - camX), Math.floor(item.y));
+    }
+  }
+
   function drawEnemies() {
     const camX = Math.floor(game.cameraX);
     for (const e of game.enemies) {
@@ -716,16 +873,33 @@
   function drawPlayer() {
     const p = game.player;
     if (p.invuln > 0 && Math.floor(p.invuln * 12) % 2 === 0) return; // blink
-    const set = Sprites.cats[selectedCat];
+    // Pick the sprite set matching the current power state. small / big are
+    // baked at different scales (1.7x vs 2.2x) and on different canvas sizes.
+    const set = Sprites.cats[selectedCat][p.power];
     let sprite;
     if (p.state === 'jump') sprite = set.jump;
     else if (p.state === 'fall') sprite = set.fall;
     else if (p.state === 'run') sprite = p.animFrame === 0 ? set.run0 : set.run1;
     else sprite = set.idle;
-    // sprite is 56×48 with the cat paws near the bottom; align paws with feet.
-    const sx = Math.floor(p.x - game.cameraX - SPRITE_OFFSET_X);
-    const sy = Math.floor(p.y - SPRITE_OFFSET_Y);
-    ctx.drawImage(sprite, sx, sy);
+    // Centre the sprite horizontally on the hitbox; align the bottom of the
+    // sprite (where the cat's paws are) with the bottom of the hitbox.
+    const dims = POWER[p.power];
+    const offX = (dims.spriteW - p.w) / 2;
+    const offY = dims.spriteH - p.h;
+    const sx = Math.floor(p.x - game.cameraX - offX);
+    const sy = Math.floor(p.y - offY);
+    // Pulse scale briefly when transitioning between sizes.
+    if (p.powerXfade > 0) {
+      ctx.save();
+      const pulse = 1 + Math.sin(p.powerXfade * Math.PI * 2.5) * 0.05;
+      ctx.translate(sx + dims.spriteW / 2, sy + dims.spriteH / 2);
+      ctx.scale(pulse, pulse);
+      ctx.translate(-dims.spriteW / 2, -dims.spriteH / 2);
+      ctx.drawImage(sprite, 0, 0);
+      ctx.restore();
+    } else {
+      ctx.drawImage(sprite, sx, sy);
+    }
   }
 
   // ------ HUD + screen overlays ---------------------------------------------
@@ -967,6 +1141,7 @@
     drawTiles();
     drawGoal();
     drawItems();
+    drawPowerUps();
     drawEnemies();
     drawPlayer();
     drawFlash();

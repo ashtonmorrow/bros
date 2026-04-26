@@ -325,33 +325,43 @@
     g.restore();
   }
 
-  // Cat sprite layout. 56 × 48 canvas, cat origin at (28, 30) with scale 1.7.
-  // Hitbox in game.js stays at 20 × 22; the sprite is drawn with offset
-  // (-18, -26) from the hitbox top-left so the cat's paws sit on the ground.
-  const CAT_SPRITE_W = 56;
-  const CAT_SPRITE_H = 48;
-  const CAT_SCALE = 1.7;
-  const CAT_OX = 28;
-  const CAT_OY = 30;
+  // Cat sprite layout. Two sizes baked per palette:
+  //
+  //   small — scale 1.7, 56 × 48 canvas. Default state. Paws sit on the
+  //           hitbox bottom (20 × 22) so existing collision math stays put.
+  //   big   — scale 2.2, 72 × 64 canvas. After eating cat food. Hitbox grows
+  //           to 22 × 28 so the cat's actual silhouette covers the new size.
+  //
+  // The cat is symmetric (front-pose) so left/right share one sprite.
+  const CAT_SIZES = {
+    small: { w: 56, h: 48, scale: 1.7, ox: 28, oy: 30, hitW: 20, hitH: 22 },
+    big:   { w: 72, h: 64, scale: 2.2, ox: 36, oy: 40, hitW: 22, hitH: 28 },
+  };
+  // Backwards-compat — game.js still reads catSpriteSize for default offsets.
+  const CAT_SPRITE_W = CAT_SIZES.small.w;
+  const CAT_SPRITE_H = CAT_SIZES.small.h;
+  const CAT_SCALE    = CAT_SIZES.small.scale;
 
-  function bakeCat(palette, opts) {
-    const c = makeCanvas(CAT_SPRITE_W, CAT_SPRITE_H);
+  function bakeCat(palette, sizeKey, opts) {
+    const sz = CAT_SIZES[sizeKey];
+    const c = makeCanvas(sz.w, sz.h);
     const g = c.getContext('2d');
-    drawCat(g, CAT_OX, CAT_OY, CAT_SCALE, palette, opts);
+    drawCat(g, sz.ox, sz.oy, sz.scale, palette, opts);
     return c;
   }
 
-  // For each palette, bake a sprite per state. The cat is symmetrical so we
-  // don't keep separate left/right variants — same sprite in both directions.
+  // Per-palette × per-size: bake every state once at startup.
   function buildCatSet(palette) {
-    return {
-      idle: bakeCat(palette, {}),
-      run0: bakeCat(palette, { lean: -0.18 }),
-      run1: bakeCat(palette, { lean:  0.18 }),
-      jump: bakeCat(palette, { airborne: true, tucked: true }),
-      fall: bakeCat(palette, { airborne: true, lean: 0.05 }),
-      hurt: bakeCat(palette, { crashed: true }),
-    };
+    const set = { small: {}, big: {} };
+    for (const sz of ['small', 'big']) {
+      set[sz].idle = bakeCat(palette, sz, {});
+      set[sz].run0 = bakeCat(palette, sz, { lean: -0.18 });
+      set[sz].run1 = bakeCat(palette, sz, { lean:  0.18 });
+      set[sz].jump = bakeCat(palette, sz, { airborne: true, tucked: true });
+      set[sz].fall = bakeCat(palette, sz, { airborne: true, lean: 0.05 });
+      set[sz].hurt = bakeCat(palette, sz, { crashed: true });
+    }
+    return set;
   }
 
   function buildAllCats() {
@@ -670,6 +680,97 @@
   }
 
   // ---------------------------------------------------------------------------
+  //  Power-up box (tile type 'Q'). Solid red 32×32 block with a small
+  //  cat-food-can icon on the front. When the cat hits one from below, it
+  //  pops a can and the box turns into the brown "used" variant ('@').
+  //  Two-frame "bobble" so an unused box has a tiny idle animation.
+  // ---------------------------------------------------------------------------
+
+  function drawBox(frame) {
+    const c = makeCanvas(32, 32);
+    const ctx = c.getContext('2d');
+    // body — bright red
+    ctx.fillStyle = '#cc2929';
+    ctx.fillRect(0, 0, 32, 32);
+    // top + left highlight, bottom + right shadow (give it depth)
+    ctx.fillStyle = '#ff5555';
+    ctx.fillRect(0, 0, 32, 3);
+    ctx.fillRect(0, 0, 3, 32);
+    ctx.fillStyle = '#7a1818';
+    ctx.fillRect(0, 29, 32, 3);
+    ctx.fillRect(29, 0, 3, 32);
+    // gold rivets in the corners
+    ctx.fillStyle = '#ffd166';
+    [[4,4],[26,4],[4,26],[26,26]].forEach(([x,y]) => ctx.fillRect(x, y, 2, 2));
+    // small cat-food-can icon on the face. Frame 0/1 bobs by 1px.
+    const bob = frame === 1 ? 1 : 0;
+    // can outline
+    ctx.fillStyle = '#3a2410';
+    ctx.fillRect(11, 9 + bob, 10, 14);
+    // top + bottom rim
+    ctx.fillStyle = '#92400e';
+    ctx.fillRect(11, 9 + bob, 10, 2);
+    ctx.fillRect(11, 21 + bob, 10, 2);
+    // label
+    ctx.fillStyle = '#fbbf24';
+    ctx.fillRect(12, 11 + bob, 8, 10);
+    // fish silhouette on the label
+    ctx.fillStyle = '#3a2410';
+    ctx.fillRect(13, 14 + bob, 5, 3);
+    ctx.fillRect(17, 13 + bob, 1, 1);
+    ctx.fillRect(17, 17 + bob, 1, 1);
+    // label highlight
+    ctx.fillStyle = '#fde58a';
+    ctx.fillRect(13, 12 + bob, 1, 1);
+    return c;
+  }
+
+  // The "used" / popped version — same dimensions, brown, no icon, no rivets.
+  function drawBoxUsed() {
+    const c = makeCanvas(32, 32);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#8b5a2b';
+    ctx.fillRect(0, 0, 32, 32);
+    // bevel
+    ctx.fillStyle = '#a8703a';
+    ctx.fillRect(0, 0, 32, 3);
+    ctx.fillRect(0, 0, 3, 32);
+    ctx.fillStyle = '#5a3a1a';
+    ctx.fillRect(0, 29, 32, 3);
+    ctx.fillRect(29, 0, 3, 32);
+    // dim rivets so it still reads as a block
+    ctx.fillStyle = '#5a3a1a';
+    [[4,4],[26,4],[4,26],[26,26]].forEach(([x,y]) => ctx.fillRect(x, y, 2, 2));
+    return c;
+  }
+
+  // The cat-food can that pops out of a box. Drawn as a free-floating item
+  // sprite, 14×16. Same colour scheme as the icon on the box face.
+  function drawCatFoodCan() {
+    const c = makeCanvas(14, 16);
+    const ctx = c.getContext('2d');
+    // outline
+    ctx.fillStyle = '#3a2410';
+    ctx.fillRect(1, 1, 12, 14);
+    // top + bottom rim
+    ctx.fillStyle = '#92400e';
+    ctx.fillRect(2, 2, 10, 2);
+    ctx.fillRect(2, 12, 10, 2);
+    // label
+    ctx.fillStyle = '#fbbf24';
+    ctx.fillRect(2, 4, 10, 8);
+    // fish silhouette
+    ctx.fillStyle = '#3a2410';
+    ctx.fillRect(3, 7, 6, 2);
+    ctx.fillRect(8, 6, 1, 1);
+    ctx.fillRect(8, 9, 1, 1);
+    // label shine
+    ctx.fillStyle = '#fde58a';
+    ctx.fillRect(3, 5, 2, 1);
+    return c;
+  }
+
+  // ---------------------------------------------------------------------------
   //  Goal — cozy bed with a "BED" sign post.
   // ---------------------------------------------------------------------------
 
@@ -765,6 +866,8 @@
     yarn: drawYarn(),
     fish: drawFish(),
     catHead: drawCatHead(),
+    box:        { idle0: drawBox(0), idle1: drawBox(1), used: drawBoxUsed() },
+    catFoodCan: drawCatFoodCan(),
     grass: drawGrass(),
     dirt: drawDirt(),
     platform: drawPlatform(),
