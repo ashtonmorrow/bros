@@ -1,44 +1,58 @@
 # Pounce
 
 > A free browser side-scrolling cat platformer. Pick from four cat palettes
-> and bound through a 240-tile hand-built level on the way to a cozy bed.
-> Cat-food boxes power you up, magic fish unlock fishbone projectiles, you
-> can stomp dogs and crawling kids — wasps you have to shoot or down-pounce.
-> Vanilla HTML / CSS / JavaScript with no build step or install required;
-> Web Audio synthesised soundtrack; global high-score leaderboard.
+> and bound through three hand-built levels (960 / 720 / 720 tiles wide) on
+> the way to a cozy bed. Cat-food boxes power you up, magic fish unlock
+> fishbone projectiles, dogs and crawling kids can be stomped — wasps you
+> have to shoot or down-pounce. Vanilla HTML / CSS / JavaScript with no
+> build step or install required; Web Audio synthesised soundtrack; global
+> high-score leaderboard; keyboard, touch, and gamepad input; mid-run save.
 
 Pounce is an open-source browser game in the same family as
 [cat-ski](https://ski.mike-lee.me/) — same author, same vanilla stack, same
 plain-prose voice. Four selectable cat palettes (black, tabby, calico,
-orange) with vector cat sprites shared with cat-ski. Hand-built tile level
-structured around the four-act kishōtenketsu framework (intro → development
-→ twist → conclusion) and the six 2D-platformer level patterns (Guidance,
+orange) with vector cat sprites shared with cat-ski. Three hand-built
+levels (MEADOW WALK, NIGHT GARDEN, HOMEWARD BOUND), each structured around
+the four-act kishōtenketsu framework (intro → development → twist →
+conclusion) and the six 2D-platformer level patterns (Guidance,
 Foreshadowing, Safe Zone, Layering, Branching, Pace Breaking).
 
-The cat starts small and weak. Hitting a red `?`-style box pops a cat-food
+The cat starts small and weak. Hitting a `?`-style box pops a cat-food
 can; eating it makes the cat big (one extra hit absorbed). Hitting a box
 while big pops a magic fish; eating it grants the shooter state and the
-ability to fire fishbone projectiles with the X key. Three obstacle animals
-oppose: the dog (walking), the crawling small child (short, slow), and the
-flying wasp — wasps cannot be stomped, only shot or down-pounced. Down-pounce
-is a Mario-3-style ground-pound: in-air S or ↓ snaps the cat into a fast
-straight-down slam that one-shots anything below, including wasps, for a
-+200 score bonus.
+ability to fire fishbone projectiles with the X key. Three obstacle
+animals oppose: the dog (walking), the crawling small child (short, slow),
+and the flying wasp — wasps cannot be stomped, only shot or down-pounced.
+Down-pounce is a Mario-3-style ground-pound: in-air S or ↓ snaps the cat
+into a fast straight-down slam that one-shots anything below, including
+wasps, for a +200 score bonus.
 
-Backed by Supabase for a global top-3 leaderboard, with a localStorage cache
-so the strip paints instantly. Web Audio synthesised soundtrack (chiptune
-I–V–vi–IV in C, 132 BPM) with a panic-mode tempo speedup at the last 30
-seconds; M key toggles music. Installable as a Progressive Web App with an
-offline service worker. Hosted on Vercel, source on GitHub.
+Three difficulty modes (Easy / Normal / Hard) trade off lives, timer, and
+enemy speed. A high-contrast mode is available via the C key for
+accessibility. A mid-run snapshot auto-saves every two seconds — closing
+the tab and coming back lets you resume from the title screen. Camera
+look-ahead biases the view in the cat's facing direction; tutorial hints
+fade in along the early stretch of level 1; and a settle-to-bed animation
+plays when the cat reaches the goal.
+
+Backed by Supabase for a global top-3 leaderboard, with a localStorage
+cache so the strip paints instantly. Web Audio synthesised soundtrack
+(chiptune I–V–vi–IV in C, 132 BPM) with a panic-mode tempo speedup at the
+last 30 seconds; separate music and SFX toggles plus volume sliders.
+Installable as a Progressive Web App with an offline service worker.
+Keyboard, touch, and standard-layout gamepads all supported. Hosted on
+Vercel, source on GitHub.
 
 ## Pages
 
-- [Play Pounce](https://pounce.mike-lee.me/): The game itself. Loads in any
-  modern browser. Desktop primary; mobile is on the roadmap.
+- [Play Pounce](https://pounce.mike-lee.me/): The game itself. Loads in
+  any modern browser. Keyboard, touch, and gamepad supported.
 - [Building Pounce, a Browser Cat Platformer](https://pounce.mike-lee.me/readme.html):
   A walkthrough article covering the tile-based level architecture, the
-  four-act kishōtenketsu pacing applied to the level, the vector cat sprites
-  shared with cat-ski, and the free toolchain used to ship it.
+  four-act kishōtenketsu pacing applied across three levels, the vector
+  cat sprites shared with cat-ski, and the free toolchain used to ship it.
+- [Privacy policy](https://pounce.mike-lee.me/privacy.html): Lists every
+  localStorage key the game writes and what's sent to Supabase.
 
 ## About the project
 

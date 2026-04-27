@@ -171,10 +171,11 @@
       setTimeout(() => tone({ freq: 1318, type: 'square', dur: 0.10, vol: 0.16 }), 50);
     },
 
-    // Player head-bumps a power-up box from below.
+    // Player head-bumps a power-up box from below. Brighter "wood-tap"
+    // pop so it reads as a box-bump rather than a low BANG — a single
+    // short, mid-high tone with a quick descent.
     boxHit() {
-      tone({ freq: 220, type: 'square', dur: 0.06, vol: 0.18 });
-      setTimeout(() => tone({ freq: 165, type: 'square', dur: 0.08, vol: 0.16 }), 30);
+      tone({ freq: 660, type: 'square', dur: 0.05, vol: 0.13, slide: -180 });
     },
 
     // The cat eats a cat-food can and grows.
@@ -207,9 +208,12 @@
       tone({ freq: 660, type: 'sawtooth', dur: 0.18, vol: 0.16, slide: -460 });
     },
 
-    // Pound impact on the ground — heavy thump.
+    // Pound impact on the ground — soft thud + short tap. Triangle wave
+    // is gentler than the old square; the second blip adds the "weight"
+    // without making it sound like a low BANG.
     poundLand() {
-      tone({ freq: 110, type: 'square', dur: 0.10, vol: 0.20, slide: -50 });
+      tone({ freq: 130, type: 'triangle', dur: 0.10, vol: 0.16, slide: -50 });
+      setTimeout(() => tone({ freq: 220, type: 'square', dur: 0.04, vol: 0.08 }), 12);
     },
 
     // Background music — chiptune-style 4-bar loop synthesised in Web Audio.

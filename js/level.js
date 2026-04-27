@@ -87,14 +87,20 @@
   /* =========================================================================
    *  LEVEL 1 — "MEADOW WALK" (the original sunset level, expanded)
    *
-   *  Three movements, each ~240 tiles. Each opens with a calm tutorial-style
+   *  Four movements, ~240 tiles each. Each opens with a calm tutorial-style
    *  beat, escalates into a section-specific twist, and closes with a
    *  recovery + transition into the next movement. The final movement ends
    *  at the goal (cozy bed).
+   *
+   *  Movement D ("ROOFTOP RUN") was added in a later pass to lengthen the
+   *  level toward the user's original "9× longer" brief. It picks up after
+   *  movement C's old "final stretch" beat and replaces what used to be the
+   *  goal staircase with a longer mid-air sequence over a deep canyon
+   *  before the cat reaches the bed.
    * ======================================================================= */
 
   function buildLevel1() {
-    const W = 720;
+    const W = 960;
     const b = makeBuilder(W);
     const { ground, plat, ent, treatArc } = b;
 
@@ -425,14 +431,138 @@
     ent(675, 11, 'F');
     ent(678, 11, 'F');
 
-    // ----- Goal staircase + bed -----
-    ground(685, 35);                 // long final ground
-    plat(689, 11, 3);
-    plat(692, 10, 3);
-    plat(695, 9, 3);
-    plat(698, 8, 6);                 // top tier — wide enough for the bed
-    ent(700, 7, 'Y');
-    ent(702, 7, 'G');                // GOAL — cozy bed
+    /* ---- Movement D: rooftop run (cols 685-959) ----
+       The cat leaves the cliff valley and crosses a series of long
+       canyon-bridges and floating "rooftops" with patrolling enemies,
+       a harder Q-box puzzle, and one tight wasp gauntlet — then climbs
+       the final staircase to the bed. */
+
+    // Bridge into D — a longer flat with a reward Q tucked overhead.
+    treatArc(682, 686, 8);
+    ground(687, 24);
+    ent(690, 11, 'F');
+    ent(692, 8, 'Q');                // refresher
+    ent(694, 11, 'F');
+    ent(697, 11, 'B');
+    ent(701, 11, 'F');
+    ent(703, 6, 'W');
+    ent(705, 11, 'D');
+    ent(708, 11, 'F');
+
+    // Rooftop 1: float platform with a small enemy crew below.
+    treatArc(712, 715, 8);
+    ground(716, 18);
+    plat(719, 7, 6);
+    ent(720, 6, 'F');
+    ent(722, 6, 'Y');
+    ent(724, 6, 'F');
+    ent(721, 11, 'B');
+    ent(727, 11, 'D');
+    ent(731, 11, 'F');
+
+    // Rooftop 2: a stepped ascent then descent — three stair platforms
+    // up, three down. Tests vertical control without enemies in the way.
+    treatArc(735, 739, 8);
+    ground(740, 22);
+    plat(743, 10, 3);
+    plat(746, 9, 3);
+    plat(749, 8, 3);                 // peak
+    ent(749, 7, 'Q');                // peak reward
+    plat(752, 8, 3);
+    plat(755, 9, 3);
+    plat(758, 10, 3);
+    ent(744, 11, 'B');
+    ent(755, 11, 'D');
+    ent(760, 11, 'F');
+
+    // Canyon: 6-tile pit with treat arc, mid-air stepping platform.
+    treatArc(763, 768, 8);
+    plat(765, 9, 2);                 // mid-air stepping platform inside the gap
+    ent(765, 8, 'F');
+    ground(769, 14);
+    ent(772, 11, 'F');
+    ent(775, 11, 'B');
+    plat(773, 6, 5);                 // optional hover ledge
+    ent(774, 5, 'Y');
+    ent(776, 5, 'F');
+    ent(780, 11, 'F');
+
+    // Wasp gauntlet 2 — tighter than Movement B's. Low ceiling, three
+    // wasps zoned across the corridor. Solution: shoot or pounce.
+    treatArc(783, 786, 8);
+    ground(787, 18);
+    plat(789, 4, 14);                // long low ceiling
+    ent(791, 6, 'W');
+    ent(795, 6, 'W');
+    ent(799, 6, 'W');
+    ent(792, 11, 'B');
+    ent(797, 11, 'D');
+    ent(801, 11, 'F');
+
+    // Recovery beat — pace breaker, wide flat, lots of treats.
+    treatArc(805, 808, 8);
+    ground(809, 22);
+    ent(811, 11, 'F');
+    ent(814, 11, 'F');
+    ent(816, 8, 'Q');
+    ent(818, 11, 'F');
+    ent(820, 11, 'F');
+    ent(822, 11, 'D');
+    ent(826, 11, 'F');
+    ent(829, 11, 'F');
+
+    // Sky route 2 — a hidden upper rail that skips the next section
+    // entirely. Tucked behind the recovery so curious players find it.
+    plat(811, 3, 18);
+    ent(813, 2, 'Y');
+    ent(815, 2, 'Y');
+    ent(817, 2, 'Y');
+    ent(819, 2, 'Y');
+    ent(821, 2, 'Y');
+    ent(823, 2, 'Y');
+    ent(825, 2, 'Y');
+
+    // Final canyon: 5-tile gap, then climbing platforms, then the bed.
+    treatArc(832, 836, 8);
+    ground(837, 16);
+    ent(839, 11, 'F');
+    ent(842, 11, 'B');
+    plat(840, 7, 5);
+    ent(841, 6, 'F');
+    ent(843, 6, 'Y');
+    ent(847, 11, 'F');
+    ent(850, 6, 'W');                // last wasp
+
+    treatArc(853, 857, 8);
+    ground(858, 14);
+    ent(861, 11, 'F');
+    ent(864, 8, 'Q');                // last Q-box reward
+    ent(867, 11, 'D');
+    ent(870, 11, 'F');
+
+    // Climb-up to the goal: a longer staircase than the original.
+    treatArc(872, 875, 8);
+    ground(876, 18);
+    ent(879, 11, 'F');
+    plat(882, 11, 3);
+    plat(885, 10, 3);
+    plat(888, 9, 3);
+    ent(888, 8, 'F');
+    plat(891, 8, 3);
+    ent(891, 7, 'Y');
+
+    // ----- Goal staircase + bed (now further out) -----
+    ground(894, 66);                 // long final ground all the way to world edge
+    ent(897, 11, 'F');
+    ent(900, 11, 'F');
+    ent(903, 11, 'F');               // calm runway — almost there
+    ent(906, 11, 'F');
+    plat(910, 11, 3);
+    plat(913, 10, 3);
+    plat(916, 9, 3);
+    plat(919, 8, 6);                 // top tier — wide enough for the bed
+    ent(921, 7, 'Y');
+    ent(923, 7, 'G');                // GOAL — cozy bed
 
     return { grid: b.finalize(), width: W, height: H, label: 'MEADOW WALK' };
   }
@@ -441,12 +571,14 @@
   /* =========================================================================
    *  LEVEL 2 — "NIGHT GARDEN"
    *
-   *  Shorter and denser. Lots of wasps. The hidden-sky-route trick gets
-   *  re-used as the *required* path through one section.
+   *  Long, dense, and wasp-heavy. The hidden-sky-route trick gets re-used as
+   *  the *required* path through one section. A garden-pond movement (lily
+   *  pads and a hedge tunnel) was added in a later pass to bring the level
+   *  in line with level 1's substance.
    * ======================================================================= */
 
   function buildLevel2() {
-    const W = 540;
+    const W = 720;
     const b = makeBuilder(W);
     const { ground, plat, ent, treatArc } = b;
 
@@ -496,6 +628,13 @@
     ent(95, 11, 'B');
     ent(98, 6, 'W');
     ent(101, 11, 'F');
+
+    // Stair up to the sky route. Without these, the row-3 plateau is
+    // unreachable — the cat's max ~5.5-tile vertical means a single jump
+    // from ground (row 12) can't clear nine tiles of climb.
+    plat(96,  9, 2);                 // step 1
+    plat(99,  6, 2);                 // step 2
+    ent(99, 5, 'F');
 
     // Required sky route — there is no ground in the next stretch, only
     // the row-3 plateau is traversable. Falling = pit death.
@@ -567,8 +706,9 @@
     plat(272, 7, 5);
     ent(273, 6, 'Y');
 
-    // Final approach
+    // Final approach — 7-tile gap with a mid-air step to keep it forgiving.
     treatArc(287, 291, 8);
+    plat(289, 9, 2);                  // mid-air stepping platform
     ground(292, 24);
     ent(295, 11, 'F');
     ent(298, 6, 'W');
@@ -578,16 +718,93 @@
     ent(311, 11, 'F');
     ent(315, 11, 'F');
 
-    // Goal staircase
-    ground(320, 30);
-    plat(323, 11, 3);
-    plat(326, 10, 3);
-    plat(329, 9, 3);
-    plat(332, 8, 6);
-    ent(334, 7, 'Y');
-    ent(336, 7, 'G');
+    /* ---- Movement D: lily-pond + hedge tunnel (cols 320-499) ----
+       The cat crosses a moonlit pond by hopping floating lily-pad
+       platforms over a wide pit, then threads a low hedge tunnel
+       that funnels them under a wasp swarm. */
 
-    // Pad to the declared width (rest of the world is empty sky).
+    // Bridge into D — small flat with a refresher Q.
+    treatArc(316, 319, 8);
+    ground(320, 18);
+    ent(323, 11, 'F');
+    ent(325, 8, 'Q');                // refresher box
+    ent(328, 11, 'B');
+    ent(331, 11, 'F');
+    ent(334, 6, 'W');
+    ent(337, 11, 'F');
+
+    // The pond — three lily-pad platforms over a wide pit. No safety net.
+    treatArc(338, 358, 8);            // big treat arc spanning the pond
+    plat(341, 9, 2);                  // pad 1
+    ent(341, 8, 'F');
+    plat(346, 8, 2);                  // pad 2 (slightly higher)
+    ent(346, 7, 'Y');
+    plat(351, 9, 2);                  // pad 3
+    ent(351, 8, 'F');
+    plat(356, 10, 2);                 // pad 4 (lower, lead-in to ground)
+    ground(359, 14);
+    ent(362, 11, 'F');
+    ent(365, 11, 'D');
+    ent(368, 11, 'F');
+    ent(371, 11, 'F');
+
+    // Hedge tunnel — low ceiling at row 4 with a wasp gauntlet underneath.
+    treatArc(373, 377, 8);
+    ground(378, 28);
+    plat(381, 4, 24);                 // long ceiling
+    ent(384, 6, 'W');
+    ent(389, 6, 'W');
+    ent(394, 6, 'W');
+    ent(399, 6, 'W');
+    ent(386, 11, 'B');
+    ent(391, 11, 'D');
+    ent(397, 11, 'B');
+    ent(402, 11, 'F');
+    ent(404, 11, 'F');
+
+    // Recovery — open garden flat with collectibles.
+    treatArc(407, 411, 8);
+    ground(412, 22);
+    ent(415, 11, 'F');
+    ent(418, 11, 'F');
+    ent(420, 8, 'Q');                 // mid-tunnel reward
+    ent(423, 11, 'D');
+    ent(426, 11, 'F');
+    ent(429, 6, 'W');
+    ent(432, 11, 'F');
+
+    // Twilight stair — vertical ascent toward the goal hill.
+    treatArc(435, 438, 8);
+    ground(439, 16);
+    plat(442, 11, 3);
+    plat(445, 10, 3);
+    plat(448, 9, 3);
+    plat(451, 8, 4);                  // landing tier
+    ent(452, 7, 'Y');
+    ent(453, 7, 'F');
+    ent(454, 7, 'F');
+
+    // One more pit before the home stretch.
+    treatArc(456, 460, 8);
+    ground(461, 18);
+    ent(464, 11, 'F');
+    ent(467, 11, 'B');
+    ent(470, 6, 'W');
+    ent(473, 11, 'D');
+    ent(476, 11, 'F');
+
+    /* ---- Goal staircase + bed (now further out) ---- */
+    ground(479, 241);                 // long final ground all the way to world edge
+    ent(482, 11, 'F');
+    ent(485, 11, 'F');
+    ent(488, 11, 'F');                // calm runway — almost there
+    plat(495, 11, 3);
+    plat(498, 10, 3);
+    plat(501, 9, 3);
+    plat(504, 8, 6);
+    ent(506, 7, 'Y');
+    ent(508, 7, 'G');                 // GOAL
+
     return { grid: b.finalize(), width: W, height: H, label: 'NIGHT GARDEN' };
   }
 
@@ -595,12 +812,13 @@
   /* =========================================================================
    *  LEVEL 3 — "HOMEWARD BOUND"
    *
-   *  Shortest, most concentrated. A sprint through the cat's collected
-   *  obstacles ending at the cozy bed.
+   *  The trilogy's climax — long, hard, and unforgiving. A sprint through
+   *  the cat's collected obstacles, capped with a boss-style enemy
+   *  pile-up before the final cozy bed.
    * ======================================================================= */
 
   function buildLevel3() {
-    const W = 480;
+    const W = 720;
     const b = makeBuilder(W);
     const { ground, plat, ent, treatArc } = b;
 
@@ -699,7 +917,8 @@
     plat(220, 7, 5);
     ent(221, 6, 'Y');
 
-    treatArc(235, 240, 8);            // 6-tile finale gap
+    treatArc(234, 240, 8);            // 7-tile finale gap with a stepping plat
+    plat(237, 9, 2);                  // mid-air step
     ground(241, 22);
     ent(244, 11, 'F');
     ent(247, 11, 'D');
@@ -708,17 +927,107 @@
     ent(256, 11, 'F');
     ent(260, 11, 'F');
 
-    // Goal — final cozy bed at the end of the trilogy
-    treatArc(265, 268, 8);
-    ground(269, 28);
-    plat(273, 11, 3);
-    plat(276, 10, 3);
-    plat(279, 9, 3);
-    plat(282, 8, 4);
-    plat(286, 7, 6);                 // raised final tier
-    ent(288, 6, 'Y');
-    ent(290, 6, 'Y');
-    ent(292, 6, 'G');                // FINAL GOAL — the trilogy ends here
+    /* ---- Movement D: boss room + climactic climb (cols 265-499) ----
+       The trilogy's climax. A long hostile flat ("the boss room") packs
+       every enemy type into one space, then a tough vertical climb
+       gates the final stretch, and the cat finally walks to the bed. */
+
+    // Bridge into D — narrow flat with a refresher Q.
+    treatArc(263, 268, 8);            // 6-tile gap
+    ground(269, 12);
+    ent(272, 11, 'F');
+    ent(275, 8, 'Q');                 // refresher
+    ent(278, 11, 'B');
+
+    // Boss room — one long flat dense with every enemy type. Ceiling
+    // forces the cat to engage rather than skip overhead.
+    treatArc(281, 285, 8);            // 5-tile gap
+    ground(286, 36);                  // long boss-room floor
+    plat(290, 4, 30);                 // long ceiling
+    ent(292, 6, 'W');
+    ent(296, 6, 'W');
+    ent(300, 6, 'W');
+    ent(304, 6, 'W');
+    ent(308, 6, 'W');                 // wasp swarm overhead
+    ent(294, 11, 'B');
+    ent(297, 11, 'D');
+    ent(301, 11, 'B');
+    ent(305, 11, 'D');
+    ent(309, 11, 'B');                // ground-level patrol gauntlet
+    ent(312, 11, 'D');
+    ent(316, 11, 'F');
+    ent(319, 11, 'F');
+
+    // Cool-down beat — open sky, recovery treats, mid-room Q.
+    treatArc(322, 326, 8);
+    ground(327, 22);
+    ent(330, 11, 'F');
+    ent(333, 11, 'F');
+    ent(335, 8, 'Q');
+    ent(338, 11, 'D');
+    ent(341, 11, 'F');
+    ent(344, 6, 'W');
+    ent(347, 11, 'F');
+
+    // Climactic climb — taller staircase than levels 1-2, with a wasp
+    // perched at the top to make the timing matter.
+    treatArc(350, 354, 8);
+    ground(355, 16);
+    plat(358, 11, 3);
+    plat(361, 10, 3);
+    plat(364, 9, 3);
+    plat(367, 8, 5);                  // top tier
+    ent(368, 7, 'F');
+    ent(370, 7, 'Y');
+    ent(370, 4, 'W');                 // sentry wasp at the apex
+
+    // Drop down + descent valley — one last enemy gauntlet on flat ground.
+    treatArc(372, 375, 8);
+    ground(376, 24);
+    ent(379, 11, 'F');
+    ent(382, 11, 'B');
+    ent(385, 6, 'W');
+    ent(388, 11, 'D');
+    ent(391, 11, 'B');
+    ent(394, 6, 'W');
+    ent(397, 11, 'F');
+    ent(399, 11, 'F');
+
+    // Hidden rest spot — a sky platform with a Y for curious players.
+    plat(380, 3, 12);
+    ent(382, 2, 'Y');
+    ent(385, 2, 'Y');
+    ent(388, 2, 'Y');
+    ent(391, 2, 'Y');
+
+    // Final canyon — 8-tile gap with a stepping plat for safe traversal.
+    treatArc(400, 407, 8);
+    plat(403, 9, 2);                  // mid-air step
+    ground(408, 16);
+    ent(412, 11, 'F');
+    ent(415, 11, 'D');
+    ent(418, 8, 'Q');                 // last Q-box of the trilogy
+    ent(421, 11, 'F');
+
+    // Home stretch — calm runway into the final climb.
+    treatArc(424, 427, 8);
+    ground(428, 18);
+    ent(431, 11, 'F');
+    ent(434, 11, 'F');
+    ent(437, 11, 'F');
+    ent(440, 11, 'F');                // calm runway, treats only
+    ent(443, 11, 'F');
+
+    /* ---- Final goal staircase + cozy bed (the trilogy ends here) ---- */
+    ground(446, 274);                 // long final ground all the way to world edge
+    plat(450, 11, 3);
+    plat(453, 10, 3);
+    plat(456, 9, 3);
+    plat(459, 8, 4);
+    plat(463, 7, 6);                  // raised final tier
+    ent(465, 6, 'Y');
+    ent(467, 6, 'Y');
+    ent(469, 6, 'G');                 // FINAL GOAL — the trilogy ends here
 
     return { grid: b.finalize(), width: W, height: H, label: 'HOMEWARD BOUND' };
   }

@@ -11,7 +11,7 @@ author, same voice, same deploy pattern. When in doubt, match cat-ski.
 
 **Name**: Pounce
 **Tagline**: A free browser side-scroller. Play as a cat trying to reach the cozy bed.
-**Production URL** (planned): https://pounce.mike-lee.me/
+**Production URL**: https://pounce.mike-lee.me/
 **Source**: https://github.com/ashtonmorrow/bros
 **Hosting**: Vercel, auto-deployed from `main`
 **Stack**: vanilla HTML / CSS / JavaScript, HTML5 Canvas, Web Audio API. No build
@@ -30,7 +30,7 @@ Match cat-ski. The voice is plain, concrete, and quietly confident.
   ("LEVEL COMPLETE!" is fine; "Check it out!" is not).
 
 **Specificity**
-- Use real numbers. "approximately 50 KB," "240 tiles wide," "0.5 px / frame²."
+- Use real numbers. "approximately 50 KB," "960 tiles wide," "0.5 px / frame²."
   Vague claims read as filler.
 - When you describe a design choice, say *why*. Pair the constraint with the
   benefit: "Single file because that's what the original used; the practical
@@ -100,41 +100,55 @@ Author block, used in both:
 
 ## Phase plan (current state)
 
-All three phases shipped. Open work is at the polish / mobile / new-content
-layer.
+The full Phase-1-through-Tier-3 plan plus a polish round and a UI cleanup
+pass have all shipped. The build is a complete trilogy with deep QoL.
 
-1. **Phase 1 — done.** 240-tile level applying kishōtenketsu pacing,
-   non-overlapping staircases, four-cat picker.
+1. **Phase 1 — done.** Kishōtenketsu pacing, non-overlapping staircases,
+   four-cat picker.
 2. **Phase 2 — done.** Pounce rename, README + readme.html, JSON-LD
    schema, left-edge wall, cat-shaped HUD lives icon, bezel chrome,
    responsive canvas sizing, favicon set.
 3. **Phase 3 — done.** Cat-food power-up boxes (`Q` tile; small → big →
    shooter state machine, Mario-style), magic fish in big-state boxes
-   granting fishbone projectile (X to shoot, 4-bounce arc, one-shot kill),
-   three obstacle animals (dog walking, crawling child, flying wasp that
-   can't be stomped), cozy autumn-sunset palette pass.
-4. **Polish round — done.** Music loop (square + triangle, I-V-vi-IV in C,
-   132 BPM, panic-mode tempo speedup), step-puff dust particles + body bob
-   for run animation, hidden sky-route at row 3 cols 137-150, denser
-   collectible trails over every pit (12 → 75 collectibles).
-5. **Phase 4 — done.** Music on/off toggle (M key + bezel button), global
-   top-3 leaderboard via Supabase + localStorage cache, redrawn dog sprite
-   (real-dog tan/brown two-tone with ear, snout, collar, tongue), down-pounce
-   ability (in-air ↓ slams instant-killing including wasps).
-6. **Site infrastructure — done.** PWA manifest + service worker, robots.txt,
-   sitemap.xml, preview.png placeholder OG card, cross-links in bezel to
-   sister projects (pear, ski, go).
+   granting fishbone projectile, three obstacle animals (dog, crawling
+   child, wasp), cozy autumn-sunset palette pass.
+4. **Polish round — done.** Music loop, step-puff dust particles + body
+   bob for run animation, hidden sky-routes per level, denser collectible
+   trails over every pit.
+5. **Phase 4 — done.** Music + SFX on/off toggles, global top-3
+   leaderboard via Supabase + localStorage cache, redrawn dog sprite,
+   down-pounce ability.
+6. **Site infrastructure — done.** PWA manifest + service worker,
+   robots.txt, sitemap.xml, placeholder preview.png OG card, cross-links
+   in bezel to sister projects.
+7. **Tier-1 QoL — done.** Screen shake, volume sliders, full pause overlay
+   with controls + cat preview, mobile touch controls, death transition +
+   pit-respawn fade.
+8. **Multi-level — done.** Three levels in `LEVELS[]`, level-select on
+   the title screen with per-level best-score chips, padlock icon for
+   locked levels, between-level progression.
+9. **Tier-3 QoL — done.** Difficulty modes (Easy/Normal/Hard with lives,
+   timer, and enemy-speed knobs), gamepad support (any standard layout),
+   high-contrast mode, mid-run save state (auto-snapshot to localStorage
+   every 2 s, resumable from the title screen).
+10. **Tier-2 polish — done.** Box-bonk pop animation on Q boxes,
+    goal-reach settle (cat curls onto the bed with sleep-Z particles
+    before the win panel), session-best HUD pip, eased camera look-ahead,
+    in-world tutorial hints in the early stretch of level 1.
+11. **UI cleanup — done.** Single canvas brand (bezel only), trophy +
+    "TOP 3" anchor on the leaderboard strip, padlock icons replacing
+    "LOCKED" text, removed cat-name labels and difficulty blurbs,
+    icon-only audio toggles, compacted controls hint, no duplicate help.
+12. **Level expansion — done.** L1 expanded to 960 tiles (4 movements +
+    goal staircase), L2 and L3 each at 720 tiles, all three audited for
+    physics-clearable pits.
 
 ## Open work
 
-- **Real preview.png.** The placeholder is a sunset-gradient with the cat
-  silhouette and a wordmark. A real screenshot of the game in motion would
-  read better as an OG card.
-- **Supabase `pounce_scores` table.** The leaderboard runs locally without
-  it; create the table (`id` int8 identity, `created_at` timestamptz,
-  `name` varchar, `score` int8) with RLS allowing anon SELECT and INSERT to
-  enable cross-device global scoring.
-- **Mobile / touch controls.** Currently desktop-only. Cat-ski has a
-  joystick + buttons that appear on touch devices; same pattern would work.
-- **More levels.** The engine supports arbitrary maps; the shipped level is
-  one. World-2 onwards is mostly authoring.
+- **Real preview.png.** The placeholder is a sunset-gradient with the
+  cat silhouette and a wordmark. A real screenshot of the game in
+  motion would read better as an OG card.
+- **Supabase `pounce_scores` table.** The leaderboard runs locally
+  without it; create the table (`id` int8 identity, `created_at`
+  timestamptz, `name` varchar, `score` int8) with RLS allowing anon
+  SELECT and INSERT to enable cross-device global scoring.

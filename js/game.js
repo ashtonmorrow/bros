@@ -60,6 +60,10 @@
   const POUND_VY        = 14;          // initial slam speed
   const POUND_BOUNCE_VY = -6.0;        // small bounce off the floor on landing
   const POUND_LOCKOUT   = 0.05;        // ignore down-press for a beat after landing
+  // Brief window right after a jump where pounce is suppressed. Stops a
+  // careless down-tap (or analog-stick overshoot on gamepad) from snapping
+  // the player into a pounce + ground-thud the moment they leave the floor.
+  const POUND_JUMP_GRACE = 0.12;       // seconds
   // Default sizes (small). Used by entity factories before the player powers up.
   const PLAYER_W = POWER.small.w;
   const PLAYER_H = POWER.small.h;
@@ -89,7 +93,9 @@
   function syncMusicButton() {
     const btn = document.getElementById('music-toggle');
     if (!btn) return;
-    btn.textContent = musicEnabled ? '♪ MUSIC ON' : '♪ MUSIC OFF';
+    // Icon-only — the on/off state is communicated via aria-pressed (CSS
+    // strikes the icon when pressed=false). Keeps the bottom frame compact.
+    btn.textContent = '♪';
     btn.setAttribute('aria-pressed', musicEnabled ? 'true' : 'false');
   }
   function toggleMusic() {
@@ -125,7 +131,7 @@
   function syncSfxButton() {
     const btn = document.getElementById('sfx-toggle');
     if (!btn) return;
-    btn.textContent = sfxEnabled ? '◎ FX ON' : '◎ FX OFF';
+    btn.textContent = '◎';
     btn.setAttribute('aria-pressed', sfxEnabled ? 'true' : 'false');
   }
   function toggleSfx() {
@@ -165,7 +171,10 @@
     const p = game.player;
     if (!p) return;
     const snap = {
-      v: 1,
+      // v: 2 — bumped when level widths expanded so stale v1 snapshots
+      // from before the L1/L2/L3 expansion don't restore mismatched
+      // tile arrays into the new world.
+      v: 2,
       level: currentLevel,
       difficulty,
       selectedCat,
@@ -199,7 +208,7 @@
       const raw = localStorage.getItem(SNAPSHOT_KEY);
       if (!raw) return null;
       const snap = JSON.parse(raw);
-      if (!snap || snap.v !== 1) return null;
+      if (!snap || snap.v !== 2) return null;
       // Stale or future-dated → ignore.
       if (typeof snap.timestamp === 'number') {
         const age = Date.now() - snap.timestamp;
@@ -207,6 +216,18 @@
       }
       // Sanity-check the level the snapshot was for.
       if (typeof snap.level !== 'number' || snap.level < 0 || snap.level >= LEVEL_COUNT) {
+        return null;
+      }
+      // Defensive: reject if the saved tile grid doesn't match the current
+      // level's width. If a level got expanded between save and load we'd
+      // otherwise restore a too-narrow tile array into the wider world.
+      const expected = window.LEVELS && window.LEVELS[snap.level] &&
+                       window.LEVELS[snap.level].width;
+      if (
+        Array.isArray(snap.tiles) && snap.tiles.length > 0 &&
+        typeof expected === 'number' &&
+        snap.tiles[0].length !== expected
+      ) {
         return null;
       }
       return snap;
@@ -269,7 +290,7 @@
   function syncHcButton() {
     const btn = document.getElementById('contrast-toggle');
     if (!btn) return;
-    btn.textContent = highContrast ? '☀ HC ON' : '☀ HC OFF';
+    btn.textContent = '☀';
     btn.setAttribute('aria-pressed', highContrast ? 'true' : 'false');
   }
   function applyHc() {
@@ -353,6 +374,12 @@
   function renderLeaderboard() {
     if (!lbEl) return;
     lbEl.innerHTML = '';
+    // Anchor: a small "TOP 3" badge so the strip reads as global high
+    // scores at a glance instead of an unlabelled three-column grid.
+    const label = document.createElement('span');
+    label.className = 'lb-label';
+    label.textContent = 'TOP 3';
+    lbEl.appendChild(label);
     for (let i = 0; i < LB_LIMIT; i++) {
       const e = leaderboard[i];
       const row = document.createElement('span');
@@ -577,11 +604,42 @@
   function persistProgress() {
     try { localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(progress)); } catch (e) {}
   }
+  // Session-best score: highest score the player has reached across all
+  // runs since this page was loaded. Resets on reload by design — players
+  // see "can I beat what I just did?" tension within a session, while the
+  // per-level bestScores in `progress` carries across sessions for the
+  // intro/level-select chips and the global leaderboard.
+  let sessionBest = 0;
+
+  // ---- in-world tutorial hints ----
+  // First-time players don't always know the controls. A few floating hints
+  // in the early stretch of level 1 (only) prompt jump / pounce / shoot
+  // without writing a tutorial layer on top of the canvas. They fade in as
+  // the player approaches and fade back out once they're past.
+  // Coordinates are in tile-x / pixel-y. Hints are world-anchored.
+  // Only level 1 has them; once the player has cleared level 1 once they're
+  // expected to know the controls.
+  const LEVEL_HINTS = [
+    [
+      // Right after the start: encourage a jump test.
+      { tx: 8,   y: 220, text: 'TRY A JUMP — SPACE / ↑' },
+      // First gap, where committing matters.
+      { tx: 24,  y: 200, text: 'GAP! HOLD JUMP HIGHER →' },
+      // Once the cat is established, introduce the pounce.
+      { tx: 56,  y: 190, text: 'POUNCE! S / ↓ IN AIR' },
+      // First fish-box area: nudge them toward shooting.
+      { tx: 96,  y: 180, text: 'GET THE MAGIC FISH → X SHOOTS' },
+    ],
+    [],   // level 2 — none
+    [],   // level 3 — none
+  ];
+  const HINT_NEAR = 280;          // px: full opacity within this distance
+  const HINT_FAR  = 520;          // px: zero opacity past this distance
   // If the saved currentLevel is locked (e.g., progress was wiped), reset to 0.
   if (currentLevel >= progress.unlocked) currentLevel = 0;
 
   const game = {
-    mode: 'intro',          // intro | playing | paused | dying | dead | win
+    mode: 'intro',          // intro | playing | paused | dying | dead | settling | win
     lives: START_LIVES,
     score: 0,
     collected: 0,
@@ -597,6 +655,7 @@
     powerUps: [],           // cans / fish that have popped out of boxes
     projectiles: [],        // fishbones currently in flight
     particles: [],          // cosmetic puffs / sparkles
+    tileBumps: [],          // per-tile head-bump pop animations (Q boxes)
     flash: 0,               // brief screen flash on stomp (cosmetic)
     shakeT: 0,              // remaining shake duration in seconds
     shakeAmp: 0,            // shake amplitude in pixels
@@ -604,6 +663,8 @@
     dyingKind: null,        // 'final' (game over) | 'pit' (lose-a-life respawn)
     respawnFadeT: 0,        // black-fade-out timer after respawning at start
     deathTimer: 0,
+    settleT: 0,             // time spent in 'settling' (cat curling onto bed)
+    settleZAt: 0,           // last time we spawned a sleep-Z particle
   };
 
   // Trigger a brief camera shake. New shakes don't override stronger ones
@@ -666,6 +727,7 @@
       lastStepAt: 0,           // animTimer of last step-puff spawn
       pounding: false,         // currently slamming downward
       poundLockout: 0,         // small grace window after a pound lands
+      poundJumpGrace: 0,       // post-jump window where pounce is suppressed
       prevDown: false,         // edge-detect the down key
     };
   }
@@ -743,8 +805,10 @@
     game.powerUps = [];
     game.projectiles = [];
     game.particles = [];
+    game.tileBumps = [];
     game.totalCollectibles = 0;
     game.goal = null;
+    cameraLead = 0;          // reset look-ahead bias for the fresh level
 
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
@@ -839,7 +903,23 @@
     p.w = POWER.small.w;
     p.h = POWER.small.h;
     p.shootCooldown = 0;
+    // Clear all transient physics + input state so the cat doesn't, e.g.,
+    // fire a pounce on the very first frame after teleporting back to the
+    // start because the player was still holding ↓ during the fade.
+    p.pounding = false;
+    p.poundLockout = 0;
+    p.poundJumpGrace = 0;
+    p.coyote = 0;
+    p.jumpBuffer = 0;
+    p.prevJump = false;
+    p.prevDown = false;
+    p.prevShoot = false;
+    p.animTimer = 0;
+    p.animFrame = 0;
+    p.lastStepAt = 0;
+    p.powerXfade = 0;
     game.cameraX = 0;
+    cameraLead = 0;
   }
 
   // ------ input --------------------------------------------------------------
@@ -1053,6 +1133,31 @@
       btn.classList.add('pressed');
       Audio.resume();              // first-press unlocks the AudioContext
       try { btn.setPointerCapture(e.pointerId); } catch (err) {}
+      // Touch buttons set the `keys` map but never fire a real keydown
+      // event, so transitions that live in the document keydown handler
+      // (start from intro, restart from dead/win) wouldn't fire for
+      // touch-only users. Fast-path the jump-button taps that act as
+      // confirm/start/advance buttons across those screens.
+      const isStartKey = key === ' ' || key === 'arrowup' || key === 'w' ||
+                         key === 'arrowdown' || key === 's';
+      if (isStartKey && game.mode === 'intro') {
+        if (pendingSnapshot) {
+          const snap = pendingSnapshot;
+          pendingSnapshot = null;
+          resumeFromSnapshot(snap);
+        } else {
+          restart();
+        }
+      } else if (
+        isStartKey && (game.mode === 'dead' || game.mode === 'win') &&
+        !lbEntryActive
+      ) {
+        if (game.mode === 'win' && currentLevel < LEVEL_COUNT - 1) {
+          currentLevel += 1;
+          persistCurrentLevel();
+        }
+        restart();
+      }
     };
     const release = () => {
       keys[key] = false;
@@ -1153,9 +1258,16 @@
     // contact with anything below — even wasps that would normally have to
     // be shot.
     if (p.poundLockout > 0) p.poundLockout = Math.max(0, p.poundLockout - dt);
+    if (p.poundJumpGrace > 0) p.poundJumpGrace = Math.max(0, p.poundJumpGrace - dt);
     const downPressed = downKey() && !p.prevDown;
     p.prevDown = downKey();
-    if (downPressed && !p.onGround && !p.pounding && p.poundLockout === 0) {
+    if (
+      downPressed &&
+      !p.onGround &&
+      !p.pounding &&
+      p.poundLockout === 0 &&
+      p.poundJumpGrace === 0
+    ) {
       p.pounding = true;
       p.vy = POUND_VY;
       p.vx = 0;
@@ -1197,6 +1309,7 @@
       p.onGround = false;
       p.coyote = 0;
       p.jumpBuffer = 0;
+      p.poundJumpGrace = POUND_JUMP_GRACE;
       Audio.jump();
     }
 
@@ -1247,6 +1360,7 @@
           tiles[bumpedRow][x] = '@';
           if (p.power === 'small') spawnCatFood(x, bumpedRow);
           else                     spawnFish(x, bumpedRow);
+          spawnTileBump(x, bumpedRow);
           Audio.boxHit();
           break;                  // pop only one box per frame
         }
@@ -1354,11 +1468,58 @@
     }
   }
 
+  // Tile-bump pop: when the cat head-bumps a Q box, the tile briefly
+  // jumps up a few pixels and settles. Pure cosmetic — physics still
+  // treats the tile as a stationary '@' immediately.
+  const TILE_BUMP_DUR = 0.18;     // total animation length (s)
+  const TILE_BUMP_PEAK = 8;       // max upward offset (px)
+  function spawnTileBump(col, row) {
+    // Replace any in-flight bump for the same tile (so a re-hit while still
+    // animating restarts the pop rather than stacking).
+    for (const b of game.tileBumps) {
+      if (b.col === col && b.row === row) { b.t = 0; return; }
+    }
+    game.tileBumps.push({ col, row, t: 0 });
+  }
+  function updateTileBumps(dt) {
+    for (const b of game.tileBumps) b.t += dt;
+    if (game.tileBumps.length > 0 &&
+        game.tileBumps[0].t >= TILE_BUMP_DUR) {
+      // Cheap GC: only filter when the oldest entry is done. Bumps drop fast.
+      game.tileBumps = game.tileBumps.filter(b => b.t < TILE_BUMP_DUR);
+    }
+  }
+  // Returns the current upward offset (px) for the given tile, or 0 if no bump.
+  function tileBumpOffset(col, row) {
+    for (const b of game.tileBumps) {
+      if (b.col !== col || b.row !== row) continue;
+      const u = b.t / TILE_BUMP_DUR;
+      if (u >= 1) return 0;
+      // Half-sine arc: 0 → peak → 0.
+      return -TILE_BUMP_PEAK * Math.sin(u * Math.PI);
+    }
+    return 0;
+  }
+
   function drawParticles() {
     const camX = Math.floor(game.cameraX);
     for (const par of game.particles) {
       if (!par.alive) continue;
       const t = par.age / par.life;
+      if (par.kind === 'z') {
+        // Sleep-Z: draw a small letter "z" that drifts up and right and
+        // fades out. Used during the settle-into-bed beat.
+        const alpha = (1 - t) * 0.85;
+        const size = 10 + t * 6;
+        ctx.save();
+        ctx.fillStyle = `rgba(240, 230, 255, ${alpha.toFixed(3)})`;
+        ctx.font = `bold ${Math.floor(size)}px monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Z', par.x - camX, par.y);
+        ctx.restore();
+        continue;
+      }
       const alpha = (1 - t) * 0.55;
       const radius = 2.5 + t * 3;
       ctx.fillStyle = `rgba(220, 200, 170, ${alpha.toFixed(3)})`;
@@ -1788,11 +1949,30 @@
     }
   }
 
-  function updateCamera() {
+  // Camera follows the cat with a small look-ahead bias: it leads the
+  // facing direction by up to LOOK_AHEAD_PX, easing toward that lead so
+  // the player has a wider view of what's coming. Eased rather than
+  // snapped — a hard re-centre on every facing flip would feel jittery.
+  const LOOK_AHEAD_PX = 80;
+  const LOOK_AHEAD_EASE = 4.0;        // higher = snappier
+  let cameraLead = 0;                 // currently-applied lead, eased toward target
+  function updateCamera(dt) {
     const p = game.player;
-    const target = p.x + p.w / 2 - VIEW_W / 2;
+    // Target lead points the way the cat is facing while moving. While
+    // standing still, decay toward 0 so the camera doesn't stay biased.
+    const moving = Math.abs(p.vx) > 0.5;
+    const desiredLead = moving ? (p.facing === 'right' ? LOOK_AHEAD_PX : -LOOK_AHEAD_PX) : 0;
+    cameraLead += (desiredLead - cameraLead) * Math.min(1, LOOK_AHEAD_EASE * dt);
+    const target = p.x + p.w / 2 - VIEW_W / 2 + cameraLead;
     game.cameraX = Math.max(0, Math.min(WORLD_W - VIEW_W, target));
   }
+
+  // ---- goal: settle-then-win ----
+  // Touching the bed kicks off a brief 'settling' beat — the cat curls up,
+  // sleep-Z particles puff out, music keeps playing for the moment — before
+  // the win panel takes over. SETTLE_DUR controls the length of that beat.
+  const SETTLE_DUR = 1.2;            // seconds spent in the 'settling' mode
+  const SETTLE_Z_INTERVAL = 0.32;    // seconds between Z-particle spawns
 
   function checkGoal() {
     if (!game.goal) return;
@@ -1801,30 +1981,72 @@
     // the cat has to actually reach the cushion.
     const gr = { x: game.goal.x, y: game.goal.y + 12, w: 48, h: 24 };
     if (rectOverlap({ x: p.x, y: p.y, w: p.w, h: p.h }, gr)) {
-      game.mode = 'win';
-      game.score += game.timer * 5;
-      Audio.win();
-      Audio.musicStop();
-      // Clear the mid-run snapshot — the run is over, the next start should
-      // be from the level-select / fresh state, not mid-play.
-      clearSnapshot();
+      // Enter the cosmetic settle phase. Keep music playing — the win
+      // chime fires when the settle resolves.
+      game.mode = 'settling';
+      game.settleT = 0;
+      game.settleZAt = 0;
+      // Anchor the cat onto the bed visually so it doesn't drift.
+      p.vx = 0;
+      p.vy = 0;
+      p.pounding = false;
+      p.x = game.goal.x + 24 - p.w / 2;     // centre on the cushion
+      p.state = 'idle';
+    }
+  }
 
-      // Persist progress: best-score-on-this-level, unlock-next-level.
-      if (game.score > (progress.bestScores[currentLevel] || 0)) {
-        progress.bestScores[currentLevel] = game.score;
-      }
-      const nextLevel = currentLevel + 1;
-      if (nextLevel < LEVEL_COUNT && progress.unlocked < nextLevel + 1) {
-        progress.unlocked = nextLevel + 1;
-      }
-      persistProgress();
+  // Sleep Z — small drifting puff for the settle animation.
+  function spawnSleepZ() {
+    const p = game.player;
+    if (!p) return;
+    game.particles.push({
+      kind: 'z',
+      x: p.x + p.w * 0.55,
+      y: p.y - 4,
+      vx: 0.45,
+      vy: -0.6,
+      age: 0,
+      life: 0.9,
+      alive: true,
+    });
+  }
 
-      // True trilogy completion: only show the leaderboard prompt on the
-      // FINAL level. Earlier levels just hand off to "level complete →
-      // press Space for next".
-      if (currentLevel === LEVEL_COUNT - 1 && qualifiesForLeaderboard(game.score)) {
-        setTimeout(showLbEntry, 800);
-      }
+  function updateSettling(dt) {
+    game.settleT += dt;
+    // Spawn a Z roughly every SETTLE_Z_INTERVAL seconds.
+    if (game.settleT - game.settleZAt > SETTLE_Z_INTERVAL) {
+      spawnSleepZ();
+      game.settleZAt = game.settleT;
+    }
+    // Settle is purely cosmetic — particles drift and decay regardless.
+    updateParticles(dt);
+    if (game.settleT >= SETTLE_DUR) finalizeWin();
+  }
+
+  function finalizeWin() {
+    game.mode = 'win';
+    game.score += game.timer * 5;
+    Audio.win();
+    Audio.musicStop();
+    // Clear the mid-run snapshot — the run is over, the next start should
+    // be from the level-select / fresh state, not mid-play.
+    clearSnapshot();
+
+    // Persist progress: best-score-on-this-level, unlock-next-level.
+    if (game.score > (progress.bestScores[currentLevel] || 0)) {
+      progress.bestScores[currentLevel] = game.score;
+    }
+    const nextLevel = currentLevel + 1;
+    if (nextLevel < LEVEL_COUNT && progress.unlocked < nextLevel + 1) {
+      progress.unlocked = nextLevel + 1;
+    }
+    persistProgress();
+
+    // True trilogy completion: only show the leaderboard prompt on the
+    // FINAL level. Earlier levels just hand off to "level complete →
+    // press Space for next".
+    if (currentLevel === LEVEL_COUNT - 1 && qualifiesForLeaderboard(game.score)) {
+      setTimeout(showLbEntry, 800);
     }
   }
 
@@ -1852,7 +2074,8 @@
       updateCollisions(dt);
       updateItems(dt);
       updateParticles(dt);
-      updateCamera();
+      updateTileBumps(dt);
+      updateCamera(dt);
       checkGoal();
 
       // Respawn fade-out (after a pit teleport) decays during play.
@@ -1868,6 +2091,8 @@
       }
     } else if (game.mode === 'dying') {
       updateDying(dt);
+    } else if (game.mode === 'settling') {
+      updateSettling(dt);
     }
   }
 
@@ -1964,7 +2189,9 @@
         const c = tiles[y][x];
         if (c === '.') continue;
         const sx = x * TILE - camX;
-        const sy = y * TILE;
+        // Box tiles can be mid-bump animation — translate up a few px.
+        const bumpDy = (c === 'Q' || c === '@') ? tileBumpOffset(x, y) : 0;
+        const sy = y * TILE + bumpDy;
         if (c === '#') ctx.drawImage(Sprites.grass, sx, sy);
         else if (c === '=') ctx.drawImage(Sprites.dirt, sx, sy);
         else if (c === '-') ctx.drawImage(Sprites.platform, sx, sy);
@@ -2087,6 +2314,36 @@
     }
   }
 
+  // ------ in-world tutorial hints -------------------------------------------
+  // Drawn in the world layer (between particles and the cat) so they fade
+  // with proximity. Only the current level's entries are considered.
+  function drawHints() {
+    const list = LEVEL_HINTS[currentLevel];
+    if (!list || !list.length) return;
+    const p = game.player;
+    if (!p) return;
+    const camX = Math.floor(game.cameraX);
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold 14px ui-monospace, Menlo, monospace';
+    for (const h of list) {
+      const wx = h.tx * TILE;
+      const dx = (p.x + p.w / 2) - wx;
+      const adx = Math.abs(dx);
+      if (adx > HINT_FAR) continue;
+      const t = 1 - Math.max(0, (adx - HINT_NEAR) / (HINT_FAR - HINT_NEAR));
+      const alpha = Math.min(1, Math.max(0, t)) * 0.85;
+      const sx = wx - camX;
+      // Soft drop-shadow for legibility against bright sky bands.
+      ctx.fillStyle = `rgba(0,0,0,${(alpha * 0.55).toFixed(3)})`;
+      ctx.fillText(h.text, sx + 1, h.y + 2);
+      ctx.fillStyle = `rgba(255, 230, 170, ${alpha.toFixed(3)})`;
+      ctx.fillText(h.text, sx, h.y);
+    }
+    ctx.restore();
+  }
+
   // ------ HUD + screen overlays ---------------------------------------------
   function drawHUD() {
     // top bar
@@ -2109,7 +2366,17 @@
       230,
       18
     );
-    ctx.fillText(`SCORE  ${game.score}`, 460, 18);
+    // Session-best — track and surface a small "BEST" pip next to SCORE so
+    // the player can see if this run is on track to beat the previous one.
+    // The pip flips to a brighter highlight colour while `score > prev best`.
+    if (game.score > sessionBest) sessionBest = game.score;
+    const beatingBest = game.score > 0 && game.score >= sessionBest;
+    ctx.fillStyle = '#fff';
+    ctx.fillText(`SCORE  ${game.score}`, 410, 18);
+    ctx.font = 'bold 12px ui-monospace, Menlo, monospace';
+    ctx.fillStyle = beatingBest ? '#ffd166' : 'rgba(255,255,255,0.55)';
+    ctx.fillText(`BEST  ${sessionBest}`, 560, 18);
+    ctx.font = 'bold 16px ui-monospace, Menlo, monospace';
     ctx.fillStyle = game.timer < 30 ? '#ff8b8b' : '#fff';
     ctx.fillText(`TIME  ${game.timer}`, 660, 18);
 
@@ -2147,7 +2414,7 @@
   const SWATCH_W = 90;
   const SWATCH_H = 90;
   const SWATCH_GAP = 14;
-  const SWATCH_Y = 200;
+  const SWATCH_Y = 130;
   function swatchX(i) {
     const total = Sprites.catNames.length * SWATCH_W +
                   (Sprites.catNames.length - 1) * SWATCH_GAP;
@@ -2159,7 +2426,7 @@
   const CHIP_W = 132;
   const CHIP_H = 50;
   const CHIP_GAP = 14;
-  const CHIP_Y = 308;
+  const CHIP_Y = 268;
   function chipX(i) {
     const total = LEVEL_COUNT * CHIP_W + (LEVEL_COUNT - 1) * CHIP_GAP;
     const startX = (VIEW_W - total) / 2;
@@ -2173,41 +2440,57 @@
   }
 
   // ---- Difficulty chips geometry (intro screen) ----
-  const DCHIP_W = 132;
-  const DCHIP_H = 38;
+  const DCHIP_W = 100;
+  const DCHIP_H = 32;
   const DCHIP_GAP = 14;
-  const DCHIP_Y = 376;
+  const DCHIP_Y = 348;
   function dchipX(i) {
     const total = DIFFICULTY_ORDER.length * DCHIP_W + (DIFFICULTY_ORDER.length - 1) * DCHIP_GAP;
     const startX = (VIEW_W - total) / 2;
     return startX + i * (DCHIP_W + DCHIP_GAP);
   }
 
+  // Pixel padlock — small icon used on locked level chips. Drawn directly
+  // with rect primitives so we don't need a sprite import. (cx, cy) is the
+  // centre of the lock body.
+  function drawPadlock(cx, cy) {
+    ctx.save();
+    // Shackle (the U-curve at the top): two vertical bars + a top bar.
+    ctx.strokeStyle = '#8a8294';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx - 4, cy - 1);
+    ctx.lineTo(cx - 4, cy - 6);
+    ctx.lineTo(cx + 4, cy - 6);
+    ctx.lineTo(cx + 4, cy - 1);
+    ctx.stroke();
+    // Body block.
+    ctx.fillStyle = '#6a6573';
+    ctx.fillRect(cx - 6, cy - 1, 12, 9);
+    // Keyhole highlight.
+    ctx.fillStyle = '#33303a';
+    ctx.fillRect(cx - 1, cy + 2, 2, 4);
+    ctx.restore();
+  }
+
   function drawIntro() {
-    ctx.fillStyle = 'rgba(15, 20, 38, 0.85)';
+    ctx.fillStyle = 'rgba(15, 20, 38, 0.88)';
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
-    // Title
     ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = 'bold 28px ui-monospace, monospace';
-    ctx.fillStyle = '#000';
-    ctx.fillText("POUNCE", VIEW_W / 2 + 2, 42);
-    ctx.fillStyle = '#ffd166';
-    ctx.fillText("POUNCE", VIEW_W / 2, 40);
 
+    // Tagline only — the bezel above already brands the page POUNCE.
     ctx.font = '13px ui-monospace, monospace';
     ctx.fillStyle = '#dfe6f0';
-    ctx.fillText('Help your cat reach the cozy bed across three levels.', VIEW_W / 2, 70);
+    ctx.fillText('Help your cat reach the cozy bed across three levels.', VIEW_W / 2, 60);
 
-    // "Pick your cat" prompt
-    ctx.font = 'bold 14px ui-monospace, monospace';
+    // "Pick your cat" prompt — small caption only, no per-cat name labels
+    // (the swatches read clearly on their own).
+    ctx.font = 'bold 12px ui-monospace, monospace';
     ctx.fillStyle = '#84e36b';
-    ctx.fillText('PICK YOUR CAT', VIEW_W / 2, 130);
-    ctx.font = '11px ui-monospace, monospace';
-    ctx.fillStyle = '#9aa6bf';
-    ctx.fillText('← / → to choose · click to select', VIEW_W / 2, 150);
+    ctx.fillText('PICK YOUR CAT', VIEW_W / 2, 100);
 
     // Cat swatches
     for (let i = 0; i < Sprites.catNames.length; i++) {
@@ -2231,22 +2514,17 @@
       Sprites.drawCat(
         ctx,
         x + SWATCH_W / 2,
-        SWATCH_Y + SWATCH_H / 2 + 12,
+        SWATCH_Y + SWATCH_H / 2 + 8,
         2.7,
         palette,
         { pose: 'front' }
       );
-
-      ctx.font = 'bold 11px ui-monospace, monospace';
-      ctx.fillStyle = selected ? '#ffd166' : '#dfe6f0';
-      ctx.textAlign = 'center';
-      ctx.fillText(Sprites.catLabels[name], x + SWATCH_W / 2, SWATCH_Y + SWATCH_H - 8);
     }
 
     // ----- Level chips -----
-    ctx.font = 'bold 14px ui-monospace, monospace';
+    ctx.font = 'bold 12px ui-monospace, monospace';
     ctx.fillStyle = '#84e36b';
-    ctx.fillText('PICK A LEVEL', VIEW_W / 2, CHIP_Y - 22);
+    ctx.fillText('PICK A LEVEL', VIEW_W / 2, CHIP_Y - 16);
 
     for (let i = 0; i < LEVEL_COUNT; i++) {
       const x = chipX(i);
@@ -2281,21 +2559,17 @@
       ctx.fillStyle = !unlocked ? '#6a6573' : (selected ? '#fff8e8' : '#9aa6bf');
       ctx.fillText(levelLabel(i), x + CHIP_W / 2, CHIP_Y + 30);
 
-      // best score (if any) or lock icon
-      ctx.font = '10px ui-monospace, monospace';
+      // best-score line, or padlock for locked, or nothing for first-play
       if (!unlocked) {
-        ctx.fillStyle = '#6a6573';
-        ctx.fillText('LOCKED', x + CHIP_W / 2, CHIP_Y + 46);
+        drawPadlock(x + CHIP_W / 2, CHIP_Y + 42);
       } else if (best > 0) {
+        ctx.font = '10px ui-monospace, monospace';
         ctx.fillStyle = '#84e36b';
-        ctx.fillText('BEST  ' + best, x + CHIP_W / 2, CHIP_Y + 46);
-      } else {
-        ctx.fillStyle = '#9aa6bf';
-        ctx.fillText('NOT YET PLAYED', x + CHIP_W / 2, CHIP_Y + 46);
+        ctx.fillText('BEST  ' + best, x + CHIP_W / 2, CHIP_Y + 44);
       }
     }
 
-    // ----- Difficulty chips -----
+    // ----- Difficulty chips ----- single label only, no descriptive blurb
     for (let i = 0; i < DIFFICULTY_ORDER.length; i++) {
       const key = DIFFICULTY_ORDER[i];
       const cfg = DIFFICULTY[key];
@@ -2317,28 +2591,20 @@
       ctx.font = 'bold 11px ui-monospace, monospace';
       ctx.textAlign = 'center';
       ctx.fillStyle = selected ? '#84e36b' : '#dfe6f0';
-      ctx.fillText(cfg.label, x + DCHIP_W / 2, DCHIP_Y + 14);
-      ctx.font = '9px ui-monospace, monospace';
-      ctx.fillStyle = selected ? '#fff8e8' : '#9aa6bf';
-      ctx.fillText(cfg.blurb, x + DCHIP_W / 2, DCHIP_Y + 28);
+      ctx.fillText(cfg.label, x + DCHIP_W / 2, DCHIP_Y + DCHIP_H / 2);
     }
 
     // Bottom prompt — switches between "start fresh" and "resume" depending
     // on whether there's a snapshot waiting from a previous session.
-    ctx.font = 'bold 14px ui-monospace, monospace';
+    ctx.font = 'bold 13px ui-monospace, monospace';
     ctx.textAlign = 'center';
     if (pendingSnapshot) {
       ctx.fillStyle = '#84e36b';
-      ctx.fillText('SPACE = RESUME PREVIOUS RUN  ·  R = FRESH START', VIEW_W / 2, 432);
+      ctx.fillText('SPACE = RESUME  ·  R = FRESH START', VIEW_W / 2, 420);
     } else {
       ctx.fillStyle = '#fff';
-      ctx.fillText('Press SPACE / W / Up to start', VIEW_W / 2, 432);
+      ctx.fillText('PRESS SPACE TO START', VIEW_W / 2, 420);
     }
-
-    ctx.font = '10px ui-monospace, monospace';
-    ctx.fillStyle = '#7aa7c7';
-    ctx.fillText('1/2/3 pick level · L cycle level · E/H pick difficulty · C contrast · M music · N FX',
-                 VIEW_W / 2, 454);
 
     ctx.restore();
   }
@@ -2549,6 +2815,7 @@
     drawProjectiles();
     drawEnemies();
     drawParticles();
+    drawHints();
     drawPlayer();
     drawFlash();
     ctx.restore();

@@ -5,14 +5,14 @@
 <title>Building Pounce, a Browser Cat Platformer | Pounce README</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<meta name="description" content="A walkthrough of building Pounce, a free browser side-scrolling cat platformer. Covers the tile-based level architecture, the four-act kishōtenketsu pacing applied to the level, the vector cat sprites shared with the cat-ski project, and the free toolchain (vanilla HTML, GitHub, Vercel) used to ship it.">
+<meta name="description" content="A walkthrough of building Pounce, a free browser side-scrolling cat platformer. Covers the tile-based level architecture, the four-act kishōtenketsu pacing applied across three levels, the vector cat sprites shared with the cat-ski project, and the free toolchain (vanilla HTML, GitHub, Vercel) used to ship it.">
 <meta name="keywords" content="pounce, browser game, javascript platformer, cat platformer, html5 canvas, kishotenketsu level design, web audio api, claude ai">
 <link rel="canonical" href="https://pounce.mike-lee.me/readme.html">
 
 <!-- Open Graph -->
 <meta property="og:type" content="article">
 <meta property="og:title" content="Building Pounce, a Browser Cat Platformer">
-<meta property="og:description" content="Walkthrough of building Pounce, a browser cat platformer, with kishōtenketsu level pacing, vector cat sprites shared with cat-ski, and a vanilla HTML / Canvas / Web Audio stack.">
+<meta property="og:description" content="Walkthrough of building Pounce, a browser cat platformer, with kishōtenketsu pacing across three levels, vector cat sprites shared with cat-ski, and a vanilla HTML / Canvas / Web Audio stack.">
 <meta property="og:image" content="https://pounce.mike-lee.me/preview.png">
 <meta property="og:url" content="https://pounce.mike-lee.me/readme.html">
 <meta property="og:site_name" content="pounce">
@@ -190,14 +190,15 @@
 
   <h2 id="about">About Pounce</h2>
 
-  <p>Pounce is a free browser side-scrolling platformer. The player picks one
-    of four cats and bounds through a 240-tile hand-built level on the way to
-    a cozy bed. Bonk red boxes for cat-food cans (grow bigger) or magic fish
-    (unlock fishbone projectiles), stomp dogs and crawling kids, shoot or
-    pounce the wasps that fly above. Vanilla HTML, CSS, and JavaScript on
-    top of an HTML5 Canvas with Web Audio for both sound effects and a
-    chiptune music loop. No build step, no framework, no runtime dependency
-    beyond Google Fonts and Supabase for the global high-score leaderboard.</p>
+  <p>Pounce is a free browser side-scrolling platformer. The player picks
+    one of four cats and bounds through three hand-built levels (960, 720,
+    and 720 tiles wide) on the way to a cozy bed. Bonk boxes for cat-food
+    cans (grow bigger) or magic fish (unlock fishbone projectiles), stomp
+    dogs and crawling kids, shoot or pounce the wasps that fly above.
+    Vanilla HTML, CSS, and JavaScript on top of an HTML5 Canvas with Web
+    Audio for both sound effects and a chiptune music loop. No build step,
+    no framework, no runtime dependency beyond Google Fonts and Supabase
+    for the global high-score leaderboard.</p>
 
   <p>The project shares its DNA with
     <a href="https://ski.mike-lee.me/">cat-ski</a>: same author, same
@@ -215,28 +216,38 @@
 
   <h2 id="play">How to play</h2>
 
-  <p>The cat starts on a flat patch of grass. Walking right takes you through a
-    240-tile level structured in four acts: a tutorial, a development section
-    with the first floating-platform challenges, a climax in the air across
-    disconnected platforms, and a final stretch that recovers the pace before
-    the goal staircase. The level ends at a cozy bed on a raised wooden plateau.</p>
+  <p>The cat starts on a flat patch of grass. Walking right takes the
+    player through a four-movement level structured in kishōtenketsu acts:
+    a tutorial, a development section with the first floating-platform
+    challenges, a vertical climb across disconnected platforms, and a
+    rooftop run that recovers the pace before the goal staircase. Each
+    level ends at a cozy bed on a raised wooden plateau. Levels 2 and 3
+    follow the same beat structure with their own themes (a wasp-heavy
+    night garden, a final-sprint homecoming).</p>
 
   <table>
     <thead>
       <tr><th>Input</th><th>Action</th></tr>
     </thead>
     <tbody>
-      <tr><td>A / D or Left / Right</td><td>Move</td></tr>
-      <tr><td>W, Up Arrow, or Space</td><td>Jump</td></tr>
-      <tr><td>S or Down Arrow (in mid-air)</td><td>Down-pounce — fast slam, instant kill on impact</td></tr>
+      <tr><td>A / D or &larr; / &rarr;</td><td>Move</td></tr>
+      <tr><td>W, &uarr;, or Space</td><td>Jump</td></tr>
+      <tr><td>S or &darr; (in mid-air)</td><td>Down-pounce &mdash; fast slam, instant kill on impact</td></tr>
       <tr><td>X</td><td>Throw a fishbone (only in shooter state, after eating a magic fish)</td></tr>
       <tr><td>P</td><td>Pause</td></tr>
-      <tr><td>M</td><td>Toggle music on / off (also a bezel button)</td></tr>
+      <tr><td>M / N</td><td>Toggle music / sound effects (also buttons below the game frame)</td></tr>
+      <tr><td>C</td><td>Toggle high-contrast mode</td></tr>
       <tr><td>R, Enter, or Space</td><td>Restart after a game over or win</td></tr>
-      <tr><td>Left / Right (title screen)</td><td>Cycle the cat picker</td></tr>
-      <tr><td>Click a swatch (title screen)</td><td>Select that cat directly</td></tr>
+      <tr><td>1 / 2 / 3 (title screen)</td><td>Jump straight to that level if unlocked</td></tr>
+      <tr><td>E / H (title screen)</td><td>Switch difficulty to easy / hard (normal is the default)</td></tr>
+      <tr><td>&larr; / &rarr; or click (title screen)</td><td>Cycle / select the cat picker</td></tr>
     </tbody>
   </table>
+
+  <p>Standard-layout gamepads are also auto-detected: A jumps, X shoots,
+    B pounces, Start advances, Select pauses, the left stick or D-pad
+    moves. On phones and tablets, on-canvas touch buttons appear
+    automatically.</p>
 
   <p>The cat starts <em>small</em>. Bonking a red <code>?</code>-style box from
     below pops a cat-food can; eating it grows the cat to <em>big</em>, which
@@ -298,60 +309,69 @@
     </tbody>
   </table>
 
-  <h2 id="level">Designing the level</h2>
+  <h2 id="level">Designing the levels</h2>
 
-  <p>The level is 240 tiles wide and 15 tiles tall. Each tile is 32 &times; 32
-    pixels in the world, so the playable area is 7680 &times; 480. The
-    horizontal camera scrolls to follow the cat and clamps at the world's left
-    and right edges so the player can't walk off-screen behind the start or
-    past the goal.</p>
+  <p>Pounce ships three levels &mdash; MEADOW WALK (960 tiles wide), NIGHT
+    GARDEN (720), and HOMEWARD BOUND (720). Each tile is 32 &times; 32
+    pixels in the world; tilemaps are 15 rows tall. The horizontal camera
+    follows the cat and clamps at the world's left and right edges so the
+    player can't walk off-screen behind the start or past the goal. The
+    camera also leads the cat's facing direction by a small eased
+    look-ahead so the player can see what's coming.</p>
 
-  <p>The level data is not a hand-typed ASCII grid. It is built programmatically
-    in <code>js/level.js</code> through a thin builder API
-    (<code>ground</code>, <code>plat</code>, <code>ent</code>) that writes
-    features into a 2D char array. The final grid is exported as an array of
-    240-character strings for <code>game.js</code> to consume. This makes the
-    level easier to reason about and to refactor when something needs to shift.</p>
+  <p>The level data is not a hand-typed ASCII grid. It is built
+    programmatically in <code>js/level.js</code> through a thin builder API
+    (<code>ground</code>, <code>plat</code>, <code>ent</code>,
+    <code>treatArc</code>) that writes features into a 2D char array. Each
+    level function builds its own grid with the builder's
+    <code>makeBuilder(width)</code> factory, so the three levels don't
+    accidentally write into one another. The grids are exposed via
+    <code>window.LEVELS</code> for <code>game.js</code> to load.</p>
 
-  <p>The structure follows the four-act kishōtenketsu framework popularised by
-    Koichi Hayashida at Nintendo (intro &rarr; development &rarr; twist
+  <p>Each level follows the four-act kishōtenketsu framework popularised
+    by Koichi Hayashida at Nintendo (intro &rarr; development &rarr; twist
     &rarr; conclusion), and each section is annotated with which of the
     <a href="https://www.gamedeveloper.com/design/level-design-patterns-in-2d-games">six 2D platformer level design patterns</a>
-    it uses (Guidance, Foreshadowing, Safe Zone, Layering, Branching, Pace Breaking).</p>
+    it uses (Guidance, Foreshadowing, Safe Zone, Layering, Branching,
+    Pace Breaking).</p>
 
   <table>
     <thead>
-      <tr><th>Act</th><th>Cols</th><th>What it teaches</th></tr>
+      <tr><th>Level</th><th>Width</th><th>Theme</th></tr>
     </thead>
     <tbody>
-      <tr><td>1. Introduction</td><td>0&ndash;49</td>
-        <td>Walking and trivial 3-tile jumps. A treat trail
-            (Guidance) and one slow enemy with an optional high path
-            (Branching) carrying a bonus yarn ball.</td></tr>
-      <tr><td>2. Development</td><td>50&ndash;123</td>
-        <td>Wider 4&ndash;5 tile pits, a three-layer platform showcase
-            (Layering), and a small mid-air stepping stone that previews
-            the bigger gaps in Act 3 (Foreshadowing). Ends with a clean
-            three-step staircase up.</td></tr>
-      <tr><td>3. Twist</td><td>124&ndash;184</td>
-        <td>Disconnected platforms with no ground below, three back-to-back
-            enemies on flat, the level's only 7-tile pit (with two stepping
-            platforms at different heights), and a vertical tower section.</td></tr>
-      <tr><td>4. Conclusion</td><td>185&ndash;239</td>
-        <td>An enemy-free recovery flat (Safe Zone &mdash; the calm before the
-            goal), one easy pit, one final bonus yarn, and a four-step goal
-            staircase ending at the cozy bed. The bed is visible from col 218
-            onward so the player always knows where they're going.</td></tr>
+      <tr><td>1. MEADOW WALK</td><td>960 tiles</td>
+        <td>The full tutorial-through-mastery arc. Four movements:
+            tutorial-and-pits, forest gauntlet with a wasp corridor, cliff
+            approach with a vertical staircase, and a rooftop run with a
+            mid-air stepping plat over a wide canyon. Ends at a goal
+            staircase to the bed. Two hidden sky routes for curious
+            players. Tutorial hints fade in along the early stretch to
+            teach jump, pounce, and shoot.</td></tr>
+      <tr><td>2. NIGHT GARDEN</td><td>720 tiles</td>
+        <td>Wasp-heavy. The hidden-sky-route trick from level 1 gets
+            re-used as the <em>required</em> path through one stretch
+            (the row-3 plateau is the only solid surface for thirty tiles;
+            falling = pit death). Followed by a lily-pond movement (four
+            floating pads over a wide pit), a hedge tunnel funneling the
+            cat under a wasp swarm, and a twilight stair into the goal.</td></tr>
+      <tr><td>3. HOMEWARD BOUND</td><td>720 tiles</td>
+        <td>The trilogy's climax. No tutorial &mdash; the player has
+            earned this. Builds to a long &ldquo;boss room&rdquo; flat
+            packing every enemy type into one space with a low ceiling,
+            a climactic vertical staircase with a sentry wasp at the
+            apex, a hidden rest spot above the descent valley, and a
+            calm runway into the final cozy bed.</td></tr>
     </tbody>
   </table>
 
-  <p>The cat's running jump can clear about five tiles flat (or six with a
-    full variable-jump hold) and reach about five tiles vertically. Every pit
-    in the level was sized to stay inside those bounds, with mid-air stepping
-    platforms placed in any gap wider than five tiles. A static check verifies
-    every entity has a solid tile underneath and no platform sits directly
-    above another solid tile (a stacking trap that would have the cat clipping
-    into a tile while standing on the one below).</p>
+  <p>The cat's running jump can clear about six tiles flat (or seven and a
+    half with a full variable-jump hold) and reach about five and a half
+    tiles vertically. Every pit in every level was sized to stay inside
+    those bounds, with mid-air stepping platforms placed in any gap wider
+    than six tiles. A programmatic audit walks each level after build,
+    flagging any pit that exceeds the six-tile flat-jump threshold without
+    a step inside it &mdash; the build is rejected if any survives.</p>
 
   <h2 id="cats">The four cats</h2>
 
