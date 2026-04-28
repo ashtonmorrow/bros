@@ -611,30 +611,6 @@
   // intro/level-select chips and the global leaderboard.
   let sessionBest = 0;
 
-  // ---- in-world tutorial hints ----
-  // First-time players don't always know the controls. A few floating hints
-  // in the early stretch of level 1 (only) prompt jump / pounce / shoot
-  // without writing a tutorial layer on top of the canvas. They fade in as
-  // the player approaches and fade back out once they're past.
-  // Coordinates are in tile-x / pixel-y. Hints are world-anchored.
-  // Only level 1 has them; once the player has cleared level 1 once they're
-  // expected to know the controls.
-  const LEVEL_HINTS = [
-    [
-      // Right after the start: encourage a jump test.
-      { tx: 8,   y: 220, text: 'TRY A JUMP — SPACE / ↑' },
-      // First gap, where committing matters.
-      { tx: 24,  y: 200, text: 'GAP! HOLD JUMP HIGHER →' },
-      // Once the cat is established, introduce the pounce.
-      { tx: 56,  y: 190, text: 'POUNCE! S / ↓ IN AIR' },
-      // First fish-box area: nudge them toward shooting.
-      { tx: 96,  y: 180, text: 'GET THE MAGIC FISH → X SHOOTS' },
-    ],
-    [],   // level 2 — none
-    [],   // level 3 — none
-  ];
-  const HINT_NEAR = 280;          // px: full opacity within this distance
-  const HINT_FAR  = 520;          // px: zero opacity past this distance
   // If the saved currentLevel is locked (e.g., progress was wiped), reset to 0.
   if (currentLevel >= progress.unlocked) currentLevel = 0;
 
@@ -1656,16 +1632,11 @@
       Audio.powerDown();
       return;
     }
-    game.lives--;
-    Audio.hurt();
-    if (game.lives <= 0) {
-      gameOver();
-      return;
-    }
-    // Knockback away from facing direction.
-    p.vy = -7;
-    p.vx = p.facing === 'right' ? -3 : 3;
-    p.invuln = 1.5;
+    // Small cat takes a fatal hit. Lose a life and route through the same
+    // dying-and-respawn flow as a pit fall, so the run resets cleanly to
+    // the start of the level instead of carrying the cat past the enemy
+    // mid-collision.
+    pitDeath();
   }
 
   // Transition to the brief 'dying' phase. Two flavours:
@@ -2314,36 +2285,6 @@
     }
   }
 
-  // ------ in-world tutorial hints -------------------------------------------
-  // Drawn in the world layer (between particles and the cat) so they fade
-  // with proximity. Only the current level's entries are considered.
-  function drawHints() {
-    const list = LEVEL_HINTS[currentLevel];
-    if (!list || !list.length) return;
-    const p = game.player;
-    if (!p) return;
-    const camX = Math.floor(game.cameraX);
-    ctx.save();
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.font = 'bold 14px ui-monospace, Menlo, monospace';
-    for (const h of list) {
-      const wx = h.tx * TILE;
-      const dx = (p.x + p.w / 2) - wx;
-      const adx = Math.abs(dx);
-      if (adx > HINT_FAR) continue;
-      const t = 1 - Math.max(0, (adx - HINT_NEAR) / (HINT_FAR - HINT_NEAR));
-      const alpha = Math.min(1, Math.max(0, t)) * 0.85;
-      const sx = wx - camX;
-      // Soft drop-shadow for legibility against bright sky bands.
-      ctx.fillStyle = `rgba(0,0,0,${(alpha * 0.55).toFixed(3)})`;
-      ctx.fillText(h.text, sx + 1, h.y + 2);
-      ctx.fillStyle = `rgba(255, 230, 170, ${alpha.toFixed(3)})`;
-      ctx.fillText(h.text, sx, h.y);
-    }
-    ctx.restore();
-  }
-
   // ------ HUD + screen overlays ---------------------------------------------
   function drawHUD() {
     // top bar
@@ -2815,7 +2756,6 @@
     drawProjectiles();
     drawEnemies();
     drawParticles();
-    drawHints();
     drawPlayer();
     drawFlash();
     ctx.restore();
