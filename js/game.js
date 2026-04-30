@@ -30,11 +30,16 @@
   const VIEW_H = 480;
 
   const GRAVITY = 0.5;
-  const ASCEND_GRAV = 0.275; // softer gravity while ascending + jump held -> variable height
-  const MOVE_ACC = 0.6;
+  const ASCEND_GRAV = 0.275;       // softer gravity while ascending + jump held → variable height
+  const APEX_GRAV   = 0.18;        // additional softening near jump apex (|vy| small) — gives a tiny "hang" the player can aim from
+  const APEX_BAND   = 1.5;         // |vy| threshold (px/frame) for the apex-hang region
+  const MOVE_ACC = 0.6;            // ground horizontal acceleration
+  const AIR_ACC  = 0.36;           // air horizontal acceleration ≈ 60% of ground (mid-jump corrections shouldn't snap)
   const FRICTION = 0.85;
-  const MAX_RUN = 3.6;
-  const JUMP_VEL = 10;
+  const MAX_RUN  = 3.6;            // base max horizontal speed
+  const SPRINT_RUN = 5.4;          // max horizontal speed while sprinting (Shift / RT held)
+  const JUMP_VEL = 10;             // base jump impulse (small cat, walking)
+  const SPRINT_JUMP_BONUS = 1.2;   // extra upward impulse when launching at full sprint — running jumps reach further
   const MAX_FALL = 12;
   const COYOTE_TIME = 0.10;
   const JUMP_BUFFER = 0.10;
@@ -1160,11 +1165,15 @@
   };
   window.addEventListener('touchstart', onFirstTouch, { passive: true });
 
-  function leftKey()  { return !!(keys['a'] || keys['arrowleft']); }
-  function rightKey() { return !!(keys['d'] || keys['arrowright']); }
-  function jumpKey()  { return !!(keys['w'] || keys['arrowup'] || keys[' ']); }
-  function shootKey() { return !!(keys['x'] || keys['j']); }
-  function downKey()  { return !!(keys['s'] || keys['arrowdown']); }
+  function leftKey()   { return !!(keys['a'] || keys['arrowleft']); }
+  function rightKey()  { return !!(keys['d'] || keys['arrowright']); }
+  function jumpKey()   { return !!(keys['w'] || keys['arrowup'] || keys[' ']); }
+  function shootKey()  { return !!(keys['x'] || keys['j']); }
+  function downKey()   { return !!(keys['s'] || keys['arrowdown']); }
+  // Sprint: hold Shift on keyboard, or RT (gamepad button 7) on a controller.
+  // Like Mario's B-button run — increases MAX_RUN to SPRINT_RUN and grants
+  // a small jump-impulse bonus so the cat covers wider gaps when committed.
+  function sprintKey() { return !!(keys['shift'] || keys['gamepadsprint']); }
 
   // ------ collision ----------------------------------------------------------
 
@@ -1252,21 +1261,35 @@
 
     // --- horizontal input + acceleration ---
     // Pounce locks horizontal control until the cat lands.
+    // Acceleration is reduced in the air (AIR_ACC ≈ 60% of MOVE_ACC) so
+    // mid-jump corrections feel like steering, not snapping. The ceiling
+    // on speed (MAX_RUN / SPRINT_RUN) doesn't change in air; you just
+    // can't *change direction* as quickly while airborne.
     if (!p.pounding) {
+      const acc = p.onGround ? MOVE_ACC : AIR_ACC;
+      const sprinting = p.onGround && sprintKey();
+      const cap = sprinting ? SPRINT_RUN : MAX_RUN;
       if (leftKey()) {
-        p.vx -= MOVE_ACC;
+        p.vx -= acc;
         p.facing = 'left';
       }
       if (rightKey()) {
-        p.vx += MOVE_ACC;
+        p.vx += acc;
         p.facing = 'right';
       }
-      if (!leftKey() && !rightKey()) {
+      if (!leftKey() && !rightKey() && p.onGround) {
         p.vx *= FRICTION;
         if (Math.abs(p.vx) < 0.1) p.vx = 0;
       }
-      if (p.vx > MAX_RUN) p.vx = MAX_RUN;
-      if (p.vx < -MAX_RUN) p.vx = -MAX_RUN;
+      // Track whether the cat is currently sprinting (used to grant a
+      // jump-power bonus on the launch frame below).
+      p.sprinting = sprinting;
+      // Speed cap: hard at the sprint cap if airborne (don't lose speed
+      // mid-jump by releasing Shift); for ground, snap toward the active
+      // cap so releasing Shift naturally decelerates.
+      const effectiveCap = p.onGround ? cap : Math.max(cap, Math.abs(p.vx));
+      if (p.vx >  effectiveCap) p.vx =  effectiveCap;
+      if (p.vx < -effectiveCap) p.vx = -effectiveCap;
     } else {
       p.vx = 0;
     }
@@ -1281,7 +1304,12 @@
     p.prevJump = jumpKey();
 
     if (!p.pounding && p.coyote > 0 && p.jumpBuffer > 0) {
-      p.vy = -JUMP_VEL;
+      // Sprint jump: launching at full sprint speed gets a small upward
+      // bonus on top of JUMP_VEL, so a running jump reaches further AND
+      // higher — players can take a wider gap by committing to sprint.
+      // Scaled smoothly with current speed so it isn't all-or-nothing.
+      const speedT = Math.min(1, Math.max(0, (Math.abs(p.vx) - MAX_RUN) / (SPRINT_RUN - MAX_RUN)));
+      p.vy = -(JUMP_VEL + SPRINT_JUMP_BONUS * speedT);
       p.onGround = false;
       p.coyote = 0;
       p.jumpBuffer = 0;
@@ -1294,8 +1322,17 @@
       // Pounce holds the slam speed; standard gravity would slow it.
       p.vy = Math.max(p.vy, POUND_VY);
     } else {
+      // Three-zone gravity: while ascending and holding jump, gravity is
+      // soft (variable jump height). Near the apex (|vy| small), gravity
+      // softens further — that's the apex-hang the player can use to
+      // line up the landing. Otherwise normal falling gravity applies.
       const ascending = p.vy < 0 && jumpKey();
-      p.vy += ascending ? ASCEND_GRAV : GRAVITY;
+      const inApex    = !p.pounding && Math.abs(p.vy) < APEX_BAND && !p.onGround;
+      let g;
+      if (ascending)      g = ASCEND_GRAV;
+      else if (inApex)    g = APEX_GRAV;
+      else                g = GRAVITY;
+      p.vy += g;
       if (p.vy > MAX_FALL) p.vy = MAX_FALL;
     }
 
@@ -2650,6 +2687,7 @@
     ctx.font = 'bold 13px ui-monospace, monospace';
     const rows = [
       ['MOVE',     'A / D  or  ← / →'],
+      ['SPRINT',   'Shift  (faster + bigger jumps)'],
       ['JUMP',     'W  ↑  Space'],
       ['POUNCE',   'S  ↓   (in mid-air)'],
       ['SHOOT',    'X     (when powered)'],
@@ -2846,6 +2884,7 @@
     if (gp.buttons[0] && gp.buttons[0].pressed) desired[' '] = true;       // A → jump
     if (gp.buttons[2] && gp.buttons[2].pressed) desired['x'] = true;       // X → shoot
     if (gp.buttons[1] && gp.buttons[1].pressed) desired['arrowdown'] = true; // B → pounce
+    if (gp.buttons[7] && gp.buttons[7].pressed) desired['gamepadsprint'] = true; // RT → sprint
     if (gp.buttons[9] && gp.buttons[9].pressed) desired['enter'] = true;   // start
     if (gp.buttons[8] && gp.buttons[8].pressed) desired['p']     = true;   // select
 

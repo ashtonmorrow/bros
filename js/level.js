@@ -104,465 +104,312 @@
     const b = makeBuilder(W);
     const { ground, plat, ent, treatArc } = b;
 
-    /* ---- Movement A: tutorial through layered platforms (cols 0–239) ----
-       (this is the original Pounce level, lightly tweaked) */
+    /* ============================================================
+     *  Level 1 is laid out as 14 rhythm groups across 4 movements,
+     *  each group authored as setup → challenge → cadence. Group
+     *  lengths target 30–55 tiles (4–7 seconds at base run speed,
+     *  ~3 seconds at sprint).
+     *
+     *  Set pieces marked with ★. Branching choices marked with ⇆.
+     *  Required gaps stay ≤6 tiles flat (or have a step inside);
+     *  sprint-only gaps (8–10 tiles, no step) are reserved for
+     *  optional shortcuts and bonus rooms, never required paths.
+     * ============================================================ */
 
-    ground(0, 16);
+    /* ===== Movement A — Tutorial (cols 0-220) =================== */
+
+    // ── Group A1 (cols 0-30): walk + first jump.
+    // Setup: empty flat to confirm right=forward. Challenge: a tiny
+    // 2-tile pit you can't walk through, can clear at any speed.
+    // Cadence: a small flat with a treat-curve leading the eye onward.
+    ground(0, 18);
     ent(1, 11, 'P');
     ent(8,  11, 'F');
     ent(11, 11, 'F');
-    ent(13, 11, 'F');
-    ent(10, 8, 'Q');                 // first power-up box (cat food)
-
-    treatArc(16, 18, 8);             // Pit #1 arc
-    ground(19, 11);
-    ent(22, 11, 'F');
-    ent(24, 11, 'F');
+    ent(14, 11, 'F');
+    ent(16, 10, 'F');                // first treat that asks "can you jump?"
+    treatArc(18, 19, 9);             // 2-tile tutorial pit, treat overhead
+    ground(20, 12);
+    ent(23, 11, 'F');
     ent(26, 11, 'F');
+    ent(29, 11, 'F');
 
-    treatArc(30, 32, 8);             // Pit #2 arc
-    ground(33, 17);
-    ent(40, 11, 'B');
-    plat(38, 7, 5);
-    ent(40, 6, 'Y');
-    ent(45, 11, 'F');
+    // ── Group A2 (cols 32-72): first power-up + first enemy.
+    // Setup: cadence flat from A1. Challenge: a Q-box right above the
+    // approach to a dog patrol — bonk for cat-food, stomp the dog.
+    // Cadence: brief flat with a yarn-ball-on-platform reward.
+    treatArc(32, 34, 9);             // 3-tile gap (still very gentle)
+    ground(35, 16);
+    ent(38, 8, 'Q');                 // first power-up box
+    ent(41, 11, 'F');
+    ent(44, 11, 'B');                // first enemy: dog
     ent(47, 11, 'F');
+    plat(49, 7, 4);
+    ent(50, 6, 'Y');                 // off-path yarn — small decision
+    treatArc(51, 54, 8);             // 4-tile gap, treats arcing over
+    ground(55, 18);
+    ent(58, 11, 'F');
+    ent(60, 11, 'F');
+    ent(63, 11, 'B');                // second dog — pattern starts
+    ent(67, 11, 'F');
+    ent(70, 11, 'F');
 
-    treatArc(50, 53, 8);             // Pit #3 arc
-    ground(54, 12);
-    ent(57, 11, 'F');
-    ent(58, 11, 'D');
-    ent(61, 11, 'F');
-    ent(63, 11, 'F');
-    ent(65, 11, 'F');
+    // ── Group A3 (cols 74-130): ★ SPRINT CORRIDOR.
+    // Set piece: a long flat with treats curving in a fast line that
+    // visually pulls the player into a sprint. Two ways across the
+    // gap at the end:
+    //   • LOW route — a 6-tile gap (walk-jumpable) with a stepping
+    //     platform mid-gap, no reward.
+    //   • HIGH route — a row-6 platform reachable only at sprint
+    //     speed, with a bonus yarn.
+    treatArc(74, 76, 9);
+    ground(77, 30);                  // long flat to build sprint
+    ent(78, 11, 'F'); ent(80, 11, 'F'); ent(82, 11, 'F');
+    ent(84, 11, 'F'); ent(86, 11, 'F'); ent(88, 10, 'F');
+    ent(90, 9,  'F'); ent(92, 8,  'F');                    // arc lifts off the ground
+    ent(94, 7,  'Y');                                      // yarn at the peak — sprint pays off
+    ent(96, 8,  'F'); ent(98, 9,  'F'); ent(100, 10, 'F');
+    ent(102, 11, 'F'); ent(104, 11, 'F'); ent(106, 11, 'F');
+    // High (sprint-only) route — yarn reward.
+    plat(110, 6, 4);
+    ent(111, 5, 'Y');
+    ent(113, 5, 'F');
+    // Low route — 6-tile gap with a mid-air step for non-sprinters.
+    plat(110, 9, 2);                 // stepping plat for the low route
+    treatArc(107, 112, 8);
+    ground(113, 18);                 // landing flat for both routes
+    ent(116, 11, 'F'); ent(118, 11, 'F');
+    ent(121, 11, 'D');               // first crawling child
+    ent(125, 11, 'F'); ent(128, 11, 'F');
 
-    treatArc(66, 69, 8);             // Pit #4 arc
-    ground(70, 17);
-    ent(71, 11, 'F');
-    ent(73, 11, 'F');
-    plat(74, 8, 5);
-    ent(72, 8, 'Q');
-    ent(76, 7, 'F');
-    plat(76, 5, 4);
-    ent(77, 4, 'Y');
-    ent(80, 11, 'B');
-    ent(82, 11, 'F');
-    ent(83, 11, 'F');
+    // ── Group A4 (cols 132-200): ★ STAIRCASE WITH WASP.
+    // Set piece: a 4-step staircase up to a Q-box that pops a magic
+    // fish (shooter state), guarded by a wasp. The wasp can be shot
+    // (after eating the fish) or pounced. Ground route below skips
+    // the climb entirely but loses the shooter power-up.
+    treatArc(132, 134, 9);
+    ground(135, 56);                 // staircase + landing flat (one continuous floor)
+    ent(138, 11, 'F');
+    ent(140, 11, 'B');               // dog patrols at the base
+    ent(143, 11, 'D');
+    plat(146, 11, 3);
+    plat(149, 10, 3);
+    plat(152, 9, 3);
+    plat(155, 8, 5);                 // top tier — reward platform
+    ent(156, 7, 'F');
+    ent(158, 5, 'W');                // wasp guarding the prize
+    ent(159, 7, 'Q');                // magic-fish box (shooter state)
+    ent(161, 7, 'F');
+    // Drop back down — landing zone, brief recovery.
+    ent(168, 11, 'F'); ent(171, 11, 'F'); ent(174, 11, 'F');
+    ent(177, 11, 'F'); ent(180, 11, 'F'); ent(183, 11, 'F');
+    ent(186, 11, 'F');
 
-    treatArc(87, 91, 8);             // Pit #5 arc
-    ground(92, 11);
-    ent(94, 11, 'F');
-    ent(95, 11, 'D');
-    ent(99, 11, 'F');
-    ent(100, 11, 'B');
+    // ── Group A5 (cols 192-220): cadence — recovery flat + transition.
+    treatArc(192, 195, 8);
+    ground(196, 26);
+    ent(196, 11, 'F'); ent(199, 11, 'F'); ent(202, 11, 'F');
+    ent(206, 11, 'F'); ent(209, 11, 'F');
+    ent(213, 11, 'F'); ent(216, 11, 'F'); ent(219, 11, 'F');
 
-    plat(104, 9, 3);
-    ent(105, 8, 'F');
+    /* ===== Movement B — Vertical exploration (cols 222-460) ===== */
 
-    ground(108, 7);
-    plat(115, 11, 2);
-    plat(117, 10, 2);
-    plat(119, 9, 5);                 // top of stairs / Act 3 entry
+    // ── Group B1 (cols 222-280): ★ THREE-DOG STOMP COMBO.
+    // Set piece: three dogs spaced exactly so a sustained stomp
+    // chain works. Bonus yarn appears on the third stomp's bounce
+    // arc — visible from the start of the run as a target.
+    treatArc(222, 225, 8);
+    ground(226, 42);
+    ent(230, 11, 'B');
+    ent(238, 11, 'B');
+    ent(246, 11, 'B');
+    plat(248, 7, 3);
+    ent(249, 6, 'Y');                // bounce-arc reward
+    ent(254, 11, 'F'); ent(257, 11, 'F'); ent(260, 11, 'F');
 
-    ent(120, 8, 'F');
-    plat(126, 8, 4);
-    ent(127, 7, 'F');
-    plat(132, 7, 4);
-    ent(133, 6, 'Y');
+    // ── Group B2 (cols 268-330): ★ Q-BOX WALL CLIMB.
+    // Set piece: three Q-boxes stacked vertically. Bonk the lowest,
+    // it becomes a solid @ tile. Use it to jump and bonk the middle,
+    // then the top. Each pop spawns a treat. Ladder leads to a
+    // hidden pocket with a yarn ball.
+    treatArc(268, 271, 8);
+    ground(272, 26);
+    ent(275, 11, 'F');
+    ent(278, 11, 'D');
+    ent(282, 11, 'F');
+    // The wall: three Q-boxes stacked, bottom at row 9, then 6, then 3.
+    // After bonking, each becomes solid and serves as the next step.
+    ent(288, 9, 'Q');
+    ent(288, 6, 'Q');
+    ent(288, 3, 'Q');
+    ent(290, 2, 'Y');                // hidden pocket reward
+    ent(290, 4, 'F');
+    ent(286, 7, 'F');                // visible "look up here" treat
+    ent(294, 11, 'F'); ent(297, 11, 'F');
 
-    // Hidden sky route (above the disconnected platforms)
-    plat(137, 3, 14);
-    ent(139, 2, 'Y');
-    ent(141, 2, 'Y');
-    ent(143, 2, 'Y');
-    ent(145, 2, 'Y');
-    ent(147, 2, 'Y');
-    ent(151, 5, 'F');                // visible "huh, why's that here?" hint
+    // ── Group B3 (cols 300-400): ⇆ BRANCHING PATHS.
+    // Decision: ground route below has more enemies and treats; sky
+    // rail above is faster but skips the score-payoff. Both rejoin.
+    treatArc(300, 303, 8);
+    ground(304, 92);                 // long contiguous floor for branching
+    // Lower (ground) route — enemy gauntlet + scattered treats.
+    ent(308, 11, 'F'); ent(312, 11, 'F'); ent(316, 11, 'F');
+    ent(320, 11, 'B'); ent(324, 11, 'D'); ent(328, 11, 'F');
+    ent(332, 11, 'B'); ent(336, 11, 'F'); ent(340, 11, 'D');
+    ent(344, 11, 'F'); ent(348, 11, 'F'); ent(352, 11, 'B');
+    ent(356, 11, 'F'); ent(360, 11, 'F'); ent(364, 11, 'F');
+    ent(368, 11, 'D'); ent(372, 11, 'F'); ent(376, 11, 'F');
+    ent(380, 11, 'F'); ent(384, 11, 'F'); ent(388, 11, 'F');
+    // Upper (sky) route — a row-3 catwalk for fast traversal, no
+    // enemies, but only 5 yarns instead of the ground path's enemies.
+    plat(312, 3, 80);
+    ent(316, 2, 'Y'); ent(330, 2, 'Y'); ent(344, 2, 'Y');
+    ent(360, 2, 'Y'); ent(376, 2, 'Y');
+    // Climb up to the sky route from the ground flat.
+    plat(306, 9, 2);
+    plat(310, 6, 2);
+    ent(310, 5, 'F');
+    // Climb back down after the rail ends.
+    plat(394, 6, 2);
+    plat(392, 9, 2);
 
-    ground(135, 14);
-    ent(138, 6, 'W');                // first wasp
-    ent(140, 11, 'F');
-    ent(143, 11, 'B');
-    ent(146, 11, 'D');
+    // ── Group B4 (cols 396-460): ★ WASP TUNNEL.
+    // Set piece: a low ceiling forces the cat under three wasps in
+    // formation. Shoot or pounce — height is too tight for a normal
+    // jump-stomp. Ends Movement B.
+    treatArc(396, 399, 8);
+    ground(400, 26);
+    plat(403, 4, 22);                // long low ceiling
+    ent(406, 6, 'W');
+    ent(412, 6, 'W');
+    ent(418, 6, 'W');
+    ent(408, 11, 'B');
+    ent(415, 11, 'D');
+    ent(421, 11, 'F'); ent(423, 11, 'F');
+    ent(425, 11, 'F');
+    treatArc(428, 431, 8);
+    ground(432, 28);
+    ent(436, 11, 'F'); ent(440, 11, 'F'); ent(444, 11, 'F');
+    ent(448, 11, 'D'); ent(452, 11, 'F'); ent(455, 11, 'B');
+    ent(458, 11, 'F');
 
-    plat(150, 9, 2);
-    plat(153, 7, 2);
-    ent(153, 6, 'F');
+    /* ===== Movement C — Twist: speed + sky (cols 460-720) ======= */
 
-    ground(156, 6);
-    plat(162, 10, 3);
-    plat(165, 9, 3);
-    plat(168, 7, 3);
-    ent(169, 6, 'Y');
+    // ── Group C1 (cols 462-540): ★ DOWNHILL DESCENT.
+    // Set piece: a stepped descent. Cat drops from a high plateau
+    // through three platforms, each one tile down + 4 forward.
+    // Treats curve down the slope to encourage the speedy path.
+    treatArc(462, 465, 8);
+    ground(466, 14);
+    plat(471, 8, 4);                 // top plateau
+    ent(472, 7, 'Y');
+    ent(474, 7, 'F');
+    plat(477, 9, 4);
+    ent(478, 8, 'F');
+    plat(483, 10, 4);
+    ent(484, 9, 'F');
+    plat(489, 11, 4);
+    ent(490, 10, 'F');
+    ground(493, 22);                 // landing flat
+    ent(496, 11, 'F'); ent(499, 11, 'F'); ent(502, 11, 'F');
+    ent(505, 11, 'B');
+    ent(509, 11, 'F'); ent(513, 11, 'F');
 
-    ground(170, 15);
-    ent(171, 11, 'F');
-    ent(174, 11, 'F');
-    ent(176, 8, 'Q');
-    ent(178, 11, 'B');
-    ent(180, 7, 'W');
-    ent(181, 11, 'F');
-    ent(182, 11, 'F');
-    ent(184, 11, 'F');
+    // ── Group C2 (cols 518-580): WIDE CANYON CHOICE.
+    // ⇆ Two ways across: a 5-tile gap with a mid-air step at row 9
+    // (walk-jumpable), or a sprint shortcut over the top via plat row 6.
+    treatArc(518, 522, 8);
+    plat(520, 9, 2);                 // mid-air step for the safe path
+    plat(521, 6, 4);                 // higher shortcut plat (sprint route)
+    ent(522, 5, 'F');
+    ent(524, 5, 'Y');
+    ground(523, 30);
+    ent(526, 11, 'F'); ent(529, 11, 'F'); ent(531, 8, 'Q');
+    ent(534, 11, 'D'); ent(537, 11, 'F');
+    ent(541, 11, 'F'); ent(544, 11, 'F'); ent(547, 11, 'F');
 
-    ground(185, 18);
-    ent(190, 11, 'F');
-    ent(192, 8, 'Q');
-    ent(194, 11, 'F');
-    ent(196, 8, 'Q');
-    ent(198, 11, 'F');
-    ent(201, 11, 'F');
+    // ── Group C3 (cols 552-650): MID-AIR FORMATION.
+    // Two wasps + one dog under stepping platforms. Sprint-jump
+    // across the formation skips most of the threat; walking forces
+    // engagement.
+    treatArc(552, 555, 8);
+    ground(556, 50);
+    plat(560, 7, 3);
+    ent(561, 6, 'F');
+    plat(566, 5, 3);
+    ent(566, 4, 'W');                // wasp on its own platform — shoot or pounce
+    plat(573, 7, 3);
+    ent(574, 6, 'F');
+    ent(580, 5, 'W');                // free-flying wasp
+    ent(575, 11, 'B');
+    ent(579, 11, 'D');
+    ent(583, 11, 'F'); ent(586, 11, 'F');
+    ent(590, 11, 'B');
+    ent(594, 11, 'F'); ent(598, 11, 'F'); ent(602, 11, 'F');
 
-    treatArc(203, 206, 8);
-    ground(207, 14);
-    ent(209, 11, 'F');
-    ent(210, 11, 'D');
-    ent(212, 11, 'F');
-    ent(213, 6, 'W');
-    ent(214, 11, 'F');
-    plat(215, 7, 4);
-    ent(216, 6, 'Y');
+    // ── Group C4 (cols 612-720): pace breaker + recovery.
+    // Calm flat, lots of treats, prepares the player for the final
+    // approach. Recovery before the conclusion.
+    treatArc(606, 611, 8);
+    plat(608, 9, 2);                 // stepping plat across the canyon
+    ground(612, 64);
+    ent(620, 11, 'F'); ent(623, 11, 'F'); ent(626, 11, 'F');
+    ent(630, 11, 'F'); ent(633, 11, 'F');
+    ent(637, 11, 'D');
+    ent(641, 11, 'F'); ent(644, 11, 'F');
+    plat(648, 7, 4);
+    ent(649, 6, 'F');
+    ent(651, 6, 'Y');
+    ent(655, 11, 'F'); ent(658, 11, 'F');
+    ent(662, 11, 'F'); ent(665, 11, 'F');
+    ent(668, 11, 'F'); ent(671, 11, 'F');
 
-    /* ---- Movement B: forest gauntlet (cols 240-479) ----
-       New ideas: stacked enemies, the first 6-tile pit (uncomfortable),
-       a forced down-pounce challenge through a tight corridor of wasps. */
+    /* ===== Movement D — Conclusion (cols 680-960) =============== */
 
-    ground(221, 22);                 // bridge into movement B
-    ent(225, 11, 'F');
-    ent(229, 8, 'Q');                // refresher box
-    ent(232, 11, 'D');
-    ent(236, 11, 'F');
-    ent(240, 11, 'B');
+    // ── Group D1 (cols 680-770): SAFE-ZONE / VICTORY LAP.
+    // Long flat, dense with treats. The cat is "running home."
+    treatArc(676, 683, 8);
+    plat(679, 9, 2);                 // stepping plat
+    ground(684, 40);
+    ent(688, 11, 'F'); ent(691, 11, 'F'); ent(694, 11, 'F');
+    ent(697, 11, 'F'); ent(700, 11, 'F'); ent(703, 11, 'F');
+    ent(706, 11, 'F'); ent(709, 11, 'F'); ent(712, 11, 'F');
+    ent(715, 11, 'F'); ent(718, 11, 'F'); ent(721, 11, 'F');
 
-    // Movement B opens
-    ground(244, 14);
-    ent(247, 11, 'F');
-    ent(250, 11, 'B');
-    ent(254, 11, 'D');
-    ent(257, 6, 'W');                // wasp directly above the patrol
-    plat(252, 8, 5);
-    ent(253, 7, 'F');
-    ent(254, 7, 'F');
+    // ── Group D2 (cols 728-800): ★ LAST-CHANCE Q WALL + ENEMY PILE-UP.
+    // Set piece: a final cat-food box + magic-fish box, then a tight
+    // ground formation of two dogs and a wasp before the goal climb.
+    treatArc(724, 731, 8);
+    plat(727, 9, 2);                 // stepping plat
+    ground(732, 32);
+    ent(735, 8, 'Q');                // last cat-food box
+    ent(738, 11, 'F');
+    ent(741, 8, 'Q');                // last magic-fish box
+    ent(744, 11, 'F');
+    ent(747, 11, 'B');
+    ent(750, 6, 'W');                // wasp overhead
+    ent(753, 11, 'D');
+    ent(756, 11, 'B');
+    ent(759, 11, 'F'); ent(762, 11, 'F');
+    treatArc(764, 768, 8);
+    ground(769, 26);
+    ent(773, 11, 'F'); ent(777, 11, 'F'); ent(781, 11, 'F');
+    ent(785, 11, 'F'); ent(789, 11, 'F'); ent(793, 11, 'F');
 
-    treatArc(258, 263, 8);           // 6-tile gap (max-jump check)
-    ground(264, 14);
-    ent(266, 11, 'F');
-    ent(268, 11, 'B');
-    ent(272, 11, 'B');
-    plat(269, 6, 6);
-    ent(270, 5, 'Y');
-    ent(273, 5, 'F');
-    ent(276, 11, 'F');
-
-    // Tight wasp corridor — three wasps on a short, low ceiling-platform
-    // section. The intended solution is shoot or pounce-down, not "jump."
-    ground(278, 16);
-    ent(280, 11, 'F');
-    ent(283, 6, 'W');
-    ent(287, 6, 'W');
-    ent(291, 6, 'W');
-    plat(280, 4, 14);                // ceiling that funnels you under the wasps
-    ent(285, 11, 'B');
-    ent(289, 11, 'D');
-    ent(292, 11, 'F');
-
-    treatArc(295, 298, 8);
-    ground(299, 18);
-    ent(303, 8, 'Q');                // mid-section box (probably yields fish)
-    ent(305, 11, 'F');
-    ent(309, 11, 'D');
-    ent(312, 11, 'B');
-    plat(307, 8, 5);
-    ent(309, 7, 'F');
-    ent(316, 11, 'F');
-
-    treatArc(318, 322, 8);           // 5-tile gap
-    ground(323, 16);
-    ent(326, 11, 'F');
-    ent(329, 11, 'B');
-    plat(327, 6, 5);
-    ent(328, 5, 'Y');
-    ent(335, 11, 'F');
-
-    // Movement-B finale: descent. The cat drops down to a lower elevation —
-    // visually like falling into a forest hollow.
-    treatArc(340, 343, 8);
-    ground(344, 26);                 // long flat — set up for descent
-    ent(347, 11, 'F');
-    ent(350, 6, 'W');
-    ent(353, 11, 'B');
-    ent(357, 11, 'D');
-    ent(361, 11, 'F');
-    ent(364, 11, 'B');
-    ent(368, 11, 'F');
-
-    // Stepped down — the next ground row would be lower if we had multiple
-    // floor levels. We simulate by placing a series of 2-wide platforms
-    // stair-stepping DOWN below row 12... but our ground is row 12. So
-    // instead this is just a long flat with breaks.
-    treatArc(371, 374, 8);
-    ground(375, 14);
-    ent(378, 11, 'F');
-    ent(381, 11, 'B');
-    ent(385, 11, 'D');
-    plat(380, 6, 6);
-    ent(382, 5, 'Y');
-    ent(386, 6, 'W');
-    ent(388, 11, 'F');
-
-    treatArc(390, 393, 8);
-    ground(394, 16);
-    ent(397, 11, 'F');
-    ent(400, 8, 'Q');
-    ent(402, 11, 'D');
-    ent(405, 11, 'B');
-    ent(408, 11, 'F');
-
-    treatArc(411, 415, 8);           // 5-tile gap
-    ground(416, 14);
-    ent(420, 11, 'F');
-    ent(423, 11, 'B');
-    plat(418, 7, 4);
-    ent(419, 6, 'F');
-    ent(421, 6, 'Y');
-    ent(427, 11, 'F');
-
-    treatArc(431, 434, 8);
-    ground(435, 12);
-    ent(438, 11, 'D');
-    ent(441, 11, 'B');
-    ent(444, 11, 'F');
-
-    /* ---- Movement C: cliff approach + final goal (cols 480–719) ----
-       Vertical climbing + a "boss-room" enemy pile-up + the goal staircase. */
-
-    treatArc(448, 451, 8);
-    ground(452, 28);                 // long bridge into C
-    ent(455, 11, 'F');
-    ent(458, 8, 'Q');
-    ent(461, 11, 'B');
-    ent(464, 6, 'W');
-    ent(467, 11, 'F');
-    ent(470, 11, 'D');
-    ent(474, 11, 'F');
-    ent(478, 11, 'B');
-
-    // Vertical staircase up (the cliff)
-    ground(482, 8);
-    plat(489, 11, 3);
-    plat(492, 10, 3);
-    plat(495, 9, 3);
-    plat(498, 8, 3);
-    plat(501, 7, 5);                 // top plateau
-    ent(502, 6, 'Y');
-    ent(503, 6, 'F');
-    ent(504, 6, 'F');
-
-    // Drop down to a "valley" with multiple wasps + ground enemies
-    ground(507, 24);
-    ent(510, 11, 'F');
-    ent(513, 6, 'W');
-    ent(516, 11, 'B');
-    ent(519, 6, 'W');
-    ent(522, 11, 'D');
-    ent(525, 11, 'B');
-    ent(528, 11, 'F');
-
-    treatArc(531, 535, 8);
-    ground(536, 16);
-    ent(540, 8, 'Q');                // refresher
-    ent(542, 11, 'F');
-    ent(545, 11, 'B');
-    ent(548, 6, 'W');
-    plat(540, 6, 8);
-    ent(543, 5, 'Y');
-    ent(550, 11, 'F');
-
-    // Long, low ceiling — pounce-down or shoot territory
-    treatArc(553, 557, 8);
-    ground(558, 22);
-    plat(560, 4, 18);                // long ceiling
-    ent(562, 6, 'W');
-    ent(566, 6, 'W');
-    ent(570, 6, 'W');
-    ent(574, 6, 'W');
-    ent(563, 11, 'B');
-    ent(567, 11, 'D');
-    ent(572, 11, 'B');
-    ent(577, 11, 'F');
-
-    treatArc(580, 584, 8);
-    ground(585, 18);
-    ent(588, 11, 'F');
-    ent(591, 8, 'Q');
-    ent(594, 11, 'D');
-    ent(597, 11, 'B');
-    ent(601, 11, 'F');
-
-    // Big climb — pre-finale
-    treatArc(603, 606, 8);
-    ground(607, 16);
-    plat(611, 11, 3);
-    plat(614, 10, 3);
-    plat(617, 9, 5);
-    ent(618, 8, 'Q');                // climb-reward
-    ent(620, 8, 'F');
-
-    // Final stretch — lots of treats, pace breaker, then goal staircase.
-    treatArc(623, 626, 8);
-    ground(627, 30);
-    ent(631, 11, 'F');
-    ent(634, 11, 'F');
-    ent(637, 11, 'F');
-    ent(640, 8, 'Q');
-    ent(642, 11, 'F');
-    ent(645, 11, 'D');                // last enemy
-    ent(648, 11, 'F');
-    ent(651, 11, 'F');
-    ent(654, 11, 'F');
-
-    treatArc(659, 662, 8);
-    ground(663, 22);
-    ent(666, 11, 'F');
-    ent(669, 11, 'F');
-    ent(672, 11, 'F');
-    plat(670, 7, 4);
-    ent(671, 6, 'Y');
-    ent(675, 11, 'F');
-    ent(678, 11, 'F');
-
-    /* ---- Movement D: rooftop run (cols 685-959) ----
-       The cat leaves the cliff valley and crosses a series of long
-       canyon-bridges and floating "rooftops" with patrolling enemies,
-       a harder Q-box puzzle, and one tight wasp gauntlet — then climbs
-       the final staircase to the bed. */
-
-    // Bridge into D — a longer flat with a reward Q tucked overhead.
-    treatArc(682, 686, 8);
-    ground(687, 24);
-    ent(690, 11, 'F');
-    ent(692, 8, 'Q');                // refresher
-    ent(694, 11, 'F');
-    ent(697, 11, 'B');
-    ent(701, 11, 'F');
-    ent(703, 6, 'W');
-    ent(705, 11, 'D');
-    ent(708, 11, 'F');
-
-    // Rooftop 1: float platform with a small enemy crew below.
-    treatArc(712, 715, 8);
-    ground(716, 18);
-    plat(719, 7, 6);
-    ent(720, 6, 'F');
-    ent(722, 6, 'Y');
-    ent(724, 6, 'F');
-    ent(721, 11, 'B');
-    ent(727, 11, 'D');
-    ent(731, 11, 'F');
-
-    // Rooftop 2: a stepped ascent then descent — three stair platforms
-    // up, three down. Tests vertical control without enemies in the way.
-    treatArc(735, 739, 8);
-    ground(740, 22);
-    plat(743, 10, 3);
-    plat(746, 9, 3);
-    plat(749, 8, 3);                 // peak
-    ent(749, 7, 'Q');                // peak reward
-    plat(752, 8, 3);
-    plat(755, 9, 3);
-    plat(758, 10, 3);
-    ent(744, 11, 'B');
-    ent(755, 11, 'D');
-    ent(760, 11, 'F');
-
-    // Canyon: 6-tile pit with treat arc, mid-air stepping platform.
-    treatArc(763, 768, 8);
-    plat(765, 9, 2);                 // mid-air stepping platform inside the gap
-    ent(765, 8, 'F');
-    ground(769, 14);
-    ent(772, 11, 'F');
-    ent(775, 11, 'B');
-    plat(773, 6, 5);                 // optional hover ledge
-    ent(774, 5, 'Y');
-    ent(776, 5, 'F');
-    ent(780, 11, 'F');
-
-    // Wasp gauntlet 2 — tighter than Movement B's. Low ceiling, three
-    // wasps zoned across the corridor. Solution: shoot or pounce.
-    treatArc(783, 786, 8);
-    ground(787, 18);
-    plat(789, 4, 14);                // long low ceiling
-    ent(791, 6, 'W');
-    ent(795, 6, 'W');
-    ent(799, 6, 'W');
-    ent(792, 11, 'B');
-    ent(797, 11, 'D');
-    ent(801, 11, 'F');
-
-    // Recovery beat — pace breaker, wide flat, lots of treats.
-    treatArc(805, 808, 8);
-    ground(809, 22);
-    ent(811, 11, 'F');
-    ent(814, 11, 'F');
-    ent(816, 8, 'Q');
-    ent(818, 11, 'F');
-    ent(820, 11, 'F');
-    ent(822, 11, 'D');
-    ent(826, 11, 'F');
-    ent(829, 11, 'F');
-
-    // Sky route 2 — a hidden upper rail that skips the next section
-    // entirely. Tucked behind the recovery so curious players find it.
-    plat(811, 3, 18);
-    ent(813, 2, 'Y');
-    ent(815, 2, 'Y');
-    ent(817, 2, 'Y');
-    ent(819, 2, 'Y');
-    ent(821, 2, 'Y');
-    ent(823, 2, 'Y');
-    ent(825, 2, 'Y');
-
-    // Final canyon: 5-tile gap, then climbing platforms, then the bed.
-    treatArc(832, 836, 8);
-    ground(837, 16);
-    ent(839, 11, 'F');
-    ent(842, 11, 'B');
-    plat(840, 7, 5);
-    ent(841, 6, 'F');
-    ent(843, 6, 'Y');
-    ent(847, 11, 'F');
-    ent(850, 6, 'W');                // last wasp
-
-    treatArc(853, 857, 8);
-    ground(858, 14);
-    ent(861, 11, 'F');
-    ent(864, 8, 'Q');                // last Q-box reward
-    ent(867, 11, 'D');
-    ent(870, 11, 'F');
-
-    // Climb-up to the goal: a longer staircase than the original.
-    treatArc(872, 875, 8);
-    ground(876, 18);
-    ent(879, 11, 'F');
-    plat(882, 11, 3);
-    plat(885, 10, 3);
-    plat(888, 9, 3);
-    ent(888, 8, 'F');
-    plat(891, 8, 3);
-    ent(891, 7, 'Y');
-
-    // ----- Goal staircase + bed (now further out) -----
-    ground(894, 66);                 // long final ground all the way to world edge
-    ent(897, 11, 'F');
-    ent(900, 11, 'F');
-    ent(903, 11, 'F');               // calm runway — almost there
-    ent(906, 11, 'F');
-    plat(910, 11, 3);
-    plat(913, 10, 3);
-    plat(916, 9, 3);
-    plat(919, 8, 6);                 // top tier — wide enough for the bed
-    ent(921, 7, 'Y');
-    ent(923, 7, 'G');                // GOAL — cozy bed
+    // ── Group D3 (cols 800-960): final approach + cozy bed.
+    // Long calm runway, then the goal staircase. Bed at the far end.
+    treatArc(797, 800, 8);
+    ground(801, 159);                // long final ground all the way to world edge
+    ent(805, 11, 'F'); ent(809, 11, 'F'); ent(813, 11, 'F');
+    ent(817, 11, 'F'); ent(821, 11, 'F'); ent(825, 11, 'F');
+    ent(830, 11, 'F'); ent(835, 11, 'F'); ent(840, 11, 'F');
+    ent(845, 11, 'F'); ent(850, 11, 'F'); ent(855, 11, 'F');
+    plat(900, 11, 3);
+    plat(903, 10, 3);
+    plat(906, 9, 3);
+    plat(909, 8, 6);                 // top tier — wide enough for the bed
+    ent(911, 7, 'Y');
+    ent(913, 7, 'G');                // GOAL — cozy bed
 
     return { grid: b.finalize(), width: W, height: H, label: 'MEADOW WALK' };
   }
