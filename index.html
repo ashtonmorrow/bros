@@ -175,6 +175,13 @@
             type="button" aria-pressed="false"
             aria-label="Toggle high-contrast mode (C)"
             title="High Contrast (C)">&#9728;</button>
+    <span class="audio-row" title="Game speed (slows the whole simulation; music keeps tempo)">
+      <span class="audio-icon-btn audio-icon-static"
+            aria-hidden="true">&#9201;</span>
+      <input id="speed-slider" class="audio-slider" type="range"
+             min="50" max="100" step="5" value="100"
+             aria-label="Game speed (50% = half-speed, 100% = native)">
+    </span>
   </div>
 
   <!-- Order matters: shared globals are defined top-down. -->

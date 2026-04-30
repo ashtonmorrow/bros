@@ -329,6 +329,28 @@
   Audio.setMusicVolume(musicVolume);
   Audio.setSfxVolume(sfxVolume);
 
+  // ---- game-speed multiplier ----
+  // Scales the simulation's dt — everything that ticks (player physics,
+  // enemy AI, gravity, the level timer, particles, animations) slows or
+  // speeds up together. The audio engine is intentionally untouched so
+  // music keeps its normal tempo; only gameplay timing changes.
+  // Range: 0.5 (half-speed accessibility / lower-end machines) to 1.0
+  // (default native speed). Default 1.0.
+  const SPEED_KEY = 'pounce_game_speed';
+  function loadSpeed() {
+    try {
+      const raw = localStorage.getItem(SPEED_KEY);
+      if (raw == null) return 1;
+      const v = parseFloat(raw);
+      if (isNaN(v)) return 1;
+      return Math.max(0.5, Math.min(1.0, v));
+    } catch (e) { return 1; }
+  }
+  function saveSpeed(v) {
+    try { localStorage.setItem(SPEED_KEY, String(v)); } catch (e) {}
+  }
+  let gameSpeed = loadSpeed();
+
   // -------------------------------------------------------------------------
   //  TOP-3 LEADERBOARD — global, Supabase-backed (cat-ski's pattern)
   // -------------------------------------------------------------------------
@@ -1098,6 +1120,22 @@
     (v) => Audio.setSfxVolume(v),
     SFX_VOL_KEY
   );
+
+  // Game-speed slider — separate from the volume sliders because its
+  // range is 50–100 (not 0–100) and it's persisted under a different
+  // key. Same focus-release pattern so SPACE / arrows go to the game.
+  (function wireSpeedSlider() {
+    const el = document.getElementById('speed-slider');
+    if (!el) return;
+    el.value = String(Math.round(gameSpeed * 100));
+    el.addEventListener('input', () => {
+      const v = Math.max(50, Math.min(100, parseInt(el.value, 10))) / 100;
+      gameSpeed = v;
+      saveSpeed(v);
+    });
+    el.addEventListener('change', () => { try { el.blur(); } catch (e) {} canvas.focus(); });
+    el.addEventListener('keydown', (e) => e.stopPropagation());
+  })();
 
   // ---- touch-control wiring ----
   // Each .touch-btn has a data-key matching one of the keys checked by the
@@ -2905,8 +2943,11 @@
   function frame(now) {
     if (!lastTime) lastTime = now;
     // Clamp dt to 50 ms so backgrounded tabs don't simulate huge time steps
-    // (which would tunnel the player through tiles).
-    const dt = Math.min(0.05, (now - lastTime) / 1000);
+    // (which would tunnel the player through tiles). Multiply by the
+    // game-speed multiplier last so the slider scales the entire
+    // simulation but input polling and rendering still run at native
+    // wall-clock framerate.
+    const dt = Math.min(0.05, (now - lastTime) / 1000) * gameSpeed;
     lastTime = now;
     pollGamepad();
     update(dt);

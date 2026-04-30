@@ -108,6 +108,13 @@ body {
   text-decoration: line-through;
 }
 .audio-icon-btn:hover { color: var(--accent-2); }
+/* Static icon (e.g. the clock next to the game-speed slider) — same
+   visual treatment as the toggles but not clickable. */
+.audio-icon-static {
+  cursor: default;
+  pointer-events: none;
+}
+.audio-icon-static:hover { color: var(--ink-soft); }
 
 /* Each audio-row is a button + its volume slider as one inline group. */
 .audio-row {

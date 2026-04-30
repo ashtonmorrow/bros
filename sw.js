@@ -16,7 +16,7 @@
  * clear on next visit.
  */
 
-const CACHE_NAME = 'pounce-v4';
+const CACHE_NAME = 'pounce-v5';
 const APP_SHELL = [
   '/',
   '/index.html',
